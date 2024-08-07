@@ -41,9 +41,9 @@ namespace czh::g
     {"clear", "[id optional] (or death)"},
     {"set", "[id] (bullet) [attr] [value]"},
     {"tell", "[id, optional], [msg]"},
-    {"pause", ""},
-    {"continue", ""},
-    {"quit", ""}
+    {"pause", "** No arguments **"},
+    {"continue", "** No arguments **"},
+    {"quit", "** No arguments **"}
   };
 }
 
@@ -141,7 +141,11 @@ namespace czh::cmd
     {
       if (call.args.empty())
         g::help_lineno = 1;
-      else if (auto v = call.get_if<int>([](int i) { return i >= 1 && i < g::help_text.size(); }); v)
+      else if (auto v = call.get_if(
+        [](int i)
+        {
+          return i >= 1 && i < g::help_text.size();
+        }); v)
       {
         int i = std::get<0>(*v);
         g::help_lineno = i;
@@ -190,14 +194,13 @@ namespace czh::cmd
       int to_x;
       int to_y;
       int is_wall = 0;
-      if (auto v = call.get_if<int, int, int>([](int w, int, int) { return w == 0 || w == 1; }); v)
+      if (auto v = call.get_if([](int w, int, int) { return w == 0 || w == 1; }); v)
       {
         std::tie(is_wall, from_x, from_y) = *v;
         to_x = from_x;
         to_y = from_y;
       }
-      else if (auto v = call.get_if<int, int, int, int, int>
-          ([](int w, int, int, int, int) { return w == 0 || w == 1; }); v)
+      else if (auto v = call.get_if([](int w, int, int, int, int) { return w == 0 || w == 1; }); v)
       {
         std::tie(is_wall, from_x, from_y, to_x, to_y) = *v;
       }
@@ -252,8 +255,11 @@ namespace czh::cmd
         return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
       };
 
-      if (auto v = call.get_if<int, int>(
-        [](int id, int to_id) { return helper::is_alive_id(id) && helper::is_alive_id(to_id); }); v)
+      if (auto v = call.get_if(
+        [](int id, int to_id)
+        {
+          return helper::is_alive_id(id) && helper::is_alive_id(to_id);
+        }); v)
       {
         int to_id;
         std::tie(id, to_id) = *v;
@@ -273,8 +279,11 @@ namespace czh::cmd
           to_pos = pos_right;
         else goto invalid_args;
       }
-      else if (auto v = call.get_if<int, int, int>(
-        [&check](int id, int x, int y) { return helper::is_alive_id(id) && check(map::Pos(x, y)); }); v)
+      else if (auto v = call.get_if(
+        [&check](int id, int x, int y)
+        {
+          return helper::is_alive_id(id) && check(map::Pos(x, y));
+        }); v)
       {
         std::tie(id, to_pos.x, to_pos.y) = *v;
       }
@@ -299,7 +308,7 @@ namespace czh::cmd
         msg::info(user_id, "Revived all tanks.");
         return;
       }
-      else if (auto v = call.get_if<int>([](int id) { return helper::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id); }); v)
       {
         std::tie(id) = *v;
       }
@@ -311,8 +320,11 @@ namespace czh::cmd
     {
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
       int num, lvl;
-      if (auto v = call.get_if<int, int>(
-        [](int num, int lvl) { return num > 0 && lvl <= 10 && lvl >= 1; }); v)
+      if (auto v = call.get_if(
+        [](int num, int lvl)
+        {
+          return num > 0 && lvl <= 10 && lvl >= 1;
+        }); v)
       {
         std::tie(num, lvl) = *v;
       }
@@ -326,8 +338,7 @@ namespace czh::cmd
     else if (call.is("observe"))
     {
       int id;
-      if (auto v = call.get_if<int>(
-        [](int id) { return g::snapshot.tanks.find(id) != g::snapshot.tanks.end(); }); v)
+      if (auto v = call.get_if([](int id) { return g::snapshot.tanks.find(id) != g::snapshot.tanks.end(); }); v)
       {
         std::tie(id) = *v;
       }
@@ -347,7 +358,7 @@ namespace czh::cmd
         game::clear_death();
         msg::info(user_id, "Killed all tanks.");
       }
-      else if (auto v = call.get_if<int>([](int id) { return helper::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id); }); v)
       {
         auto [id] = *v;
         auto t = game::id_at(id);
@@ -391,8 +402,7 @@ namespace czh::cmd
         }
         msg::info(user_id, "Cleared all tanks.");
       }
-      else if (auto v = call.get_if<std::string>(
-        [](std::string f) { return f == "death"; }); v)
+      else if (auto v = call.get_if([](std::string f) { return f == "death"; }); v)
       {
         for (auto &r: g::bullets)
         {
@@ -424,7 +434,7 @@ namespace czh::cmd
         }
         msg::info(user_id, "Cleared all died tanks.");
       }
-      else if (auto v = call.get_if<int>([](int id) { return helper::is_valid_id(id) || id != 0; }); v)
+      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id) || id != 0; }); v)
       {
         auto [id] = *v;
         for (auto &r: g::bullets)
@@ -446,7 +456,7 @@ namespace czh::cmd
     else if (call.is("set"))
     {
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
-      if (auto v = call.get_if<int, std::string, int>(
+      if (auto v = call.get_if(
         [](int id, std::string key, int value)
         {
           return helper::is_valid_id(id) &&
@@ -487,7 +497,7 @@ namespace czh::cmd
           return;
         }
       }
-      else if (auto v = call.get_if<int, std::string, std::string>(
+      else if (auto v = call.get_if(
         [](int id, std::string key, std::string value) { return helper::is_valid_id(id) && key == "name"; }); v)
       {
         auto [id, key, value] = *v;
@@ -499,7 +509,7 @@ namespace czh::cmd
           return;
         }
       }
-      else if (auto v = call.get_if<std::string, int>(
+      else if (auto v = call.get_if(
         [](std::string key, int arg)
         {
           return (key == "tick" && arg > 0)
@@ -522,10 +532,10 @@ namespace czh::cmd
         else if (option == "msg_ttl")
         {
           g::msg_ttl = std::chrono::milliseconds(arg);
-          msg::info(user_id, "Msg_ttl was set to " + std::to_string(arg) + ".");
+          msg::info(user_id, "Message TTL was set to " + std::to_string(arg) + ".");
         }
       }
-      else if (auto v = call.get_if<int, std::string, std::string, int>(
+      else if (auto v = call.get_if(
         [](int id, std::string f, std::string key, int value)
         {
           return helper::is_valid_id(id) && f == "bullet"
@@ -537,20 +547,20 @@ namespace czh::cmd
         {
           game::id_at(id)->get_info().bullet.hp = value;
           msg::info(user_id,
-                    "The bullet hp of " + game::id_at(id)->get_name() + " was set to " + std::to_string(value) + ".");
+                    "The HP of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value) + ".");
         }
         else if (key == "lethality")
         {
           game::id_at(id)->get_info().bullet.lethality = value;
           msg::info(user_id,
-                    "The bullet lethality of " + game::id_at(id)->get_name() + " was set to " + std::to_string(value) +
+                    "The lethality of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value) +
                     ".");
         }
         else if (key == "range")
         {
           game::id_at(id)->get_info().bullet.range = value;
-          msg::info(user_id, "The bullet range of " + game::id_at(id)->get_name()
-                             + " was set to " + std::to_string(value) + ".");
+          msg::info(user_id, "The range of " + game::id_at(id)->get_name()
+                             + "'s bullet was set to " + std::to_string(value) + ".");
         }
       }
       else goto invalid_args;
@@ -558,7 +568,7 @@ namespace czh::cmd
     else if (call.is("server"))
     {
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
-      if (auto v = call.get_if<std::string, int>(
+      if (auto v = call.get_if(
         [](std::string key, int port)
         {
           return g::game_mode == game::GameMode::NATIVE && key == "start" && helper::is_port(port);
@@ -570,7 +580,7 @@ namespace czh::cmd
         g::game_mode = game::GameMode::SERVER;
         msg::info(user_id, "Server started at " + std::to_string(port));
       }
-      else if (auto v = call.get_if<std::string>(
+      else if (auto v = call.get_if(
         [](std::string key)
         {
           return g::game_mode == game::GameMode::SERVER && key == "stop";
@@ -594,7 +604,7 @@ namespace czh::cmd
     else if (call.is("connect"))
     {
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
-      if (auto v = call.get_if<std::string, int>(
+      if (auto v = call.get_if(
         [](std::string ip, int port)
         {
           return g::game_mode == game::GameMode::NATIVE && helper::is_ip(ip) && helper::is_port(port);
@@ -632,12 +642,12 @@ namespace czh::cmd
     {
       int id = -1;
       std::string msg;
-      if (auto v = call.get_if<int, std::string>(
+      if (auto v = call.get_if(
         [](int id, std::string msg) { return helper::is_valid_id(id); }); v)
       {
         std::tie(id, msg) = *v;
       }
-      else if (auto v = call.get_if<std::string>([](std::string msg) { return true; }); v)
+      else if (auto v = call.get_if([](std::string msg) { return true; }); v)
       {
         std::tie(msg) = *v;
       }
@@ -650,13 +660,18 @@ namespace czh::cmd
     }
     else
     {
-      msg::error(user_id, "Invalid command.");
+      msg::error(user_id, "Invalid command. Type '/help' for more infomation.");
       return;
     }
 
     return;
   invalid_args:
-    msg::error(user_id, "Invalid arguments.");
+    auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
+                               [&call](auto &&f) { return f.cmd == call.name; });
+    if(it!= g::commands.end())
+      msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
+    else[[unlikely]]
+      msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
     return;
   }
 }

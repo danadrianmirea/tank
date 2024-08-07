@@ -92,7 +92,7 @@ int main()
               g::userdata.erase(r);
             }
           }
-          else
+          else if (g::game_mode == game::GameMode::CLIENT)
           {
             if (g::client_failed_attempts > 10)
             {

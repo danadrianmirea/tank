@@ -90,6 +90,16 @@ namespace czh::cmd
       }, tmp);
       return args;
     }
+
+    template<typename Func>
+    struct get_func_args {};
+    template<typename... Args>
+    struct get_func_args<std::function<bool(Args...)> >
+    {
+      using args = type_list::TypeList<Args...>;
+    };
+    template<typename T>
+    using get_func_args_t = typename get_func_args<T>::args;
   }
 
   template<typename... Args, typename Func>
@@ -103,15 +113,14 @@ namespace czh::cmd
         (std::forward<Func>(func), v, std::make_index_sequence<sizeof...(Args)>());
   }
 
-  template<typename... Args>
+  template<typename List>
   auto args_get(const std::vector<details::Arg> &v)
   {
-    if (v.size() != sizeof...(Args))
+    if (v.size() != type_list::size_of_v<List>)
     {
       throw std::runtime_error("Invalid get.");
     }
-    return details::args_get_impl<type_list::TypeList<Args...> >
-        (v, std::make_index_sequence<sizeof...(Args)>());
+    return details::args_get_impl<List>(v, std::make_index_sequence<type_list::size_of_v<List> >());
   }
 
   template<typename... Args>
@@ -139,11 +148,12 @@ namespace czh::cmd
       return name == n;
     }
 
-    template<typename... Args, typename Func>
+    template<typename Func>
     auto get_if(Func &&r) const
     {
-      return check<Args...>(std::function(std::forward<Func>(r)))
-               ? std::make_optional(args_get<Args...>(args))
+      using FuncType = decltype(std::function(std::forward<Func>(r)));
+      return check(std::function(std::forward<Func>(r)))
+               ? std::make_optional(args_get<details::get_func_args_t<FuncType> >(args))
                : std::nullopt;
     }
 

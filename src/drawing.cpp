@@ -129,7 +129,7 @@ namespace czh::drawing
     }
     return {};
   }
-  
+
   MapView extract_map(const map::Zone &zone)
   {
     MapView ret;
@@ -146,7 +146,7 @@ namespace czh::drawing
     }
     return ret;
   }
-  
+
   std::map<size_t, TankView> extract_tanks()
   {
     std::map<size_t, TankView> view;
@@ -164,14 +164,14 @@ namespace czh::drawing
     }
     return view;
   }
-  
+
   std::optional<TankView> view_id_at(size_t id)
   {
     auto it = g::snapshot.tanks.find(id);
     if (it == g::snapshot.tanks.end()) return std::nullopt;
     return it->second;
   }
-  
+
   std::string colorify_text(size_t id, const std::string &str)
   {
     std::string ret = "\033[38;5;";
@@ -186,7 +186,7 @@ namespace czh::drawing
     }
     return utils::color_256_fg(str, color);
   }
-  
+
   std::string colorify_tank(size_t id, const std::string &str)
   {
     std::string ret = "\033[38;5;";
@@ -201,7 +201,7 @@ namespace czh::drawing
     }
     return utils::color_256_bg(str, color);
   }
-  
+
   void update_point(const map::Pos &pos)
   {
     term::move_cursor({static_cast<size_t>((pos.x - g::visible_zone.x_min) * 2),
@@ -223,7 +223,7 @@ namespace czh::drawing
         break;
     }
   }
-  
+
   bool check_zone_size(const map::Zone &z)
   {
     size_t h = z.y_max - z.y_min;
@@ -239,7 +239,7 @@ namespace czh::drawing
     }
     return true;
   }
-  
+
   // [X min, X max)   [Y min, Y max)
   map::Zone get_visible_zone(size_t w, size_t h, size_t id)
   {
@@ -248,21 +248,21 @@ namespace czh::drawing
     int offset_x = (int) h / 4;
     ret.x_min = pos.x - offset_x;
     ret.x_max = (int) w / 2 + ret.x_min;
-    
+
     int offset_y = (int) h / 2;
     ret.y_min = pos.y - offset_y;
     ret.y_max = (int) h - 2 + ret.y_min;
     return ret;
   }
-  
+
   map::Zone get_visible_zone(size_t id)
   {
     auto ret = get_visible_zone(g::screen_width, g::screen_height, id);
     utils::tank_assert(check_zone_size(ret));
     return ret;
   }
-  
-  
+
+
   std::set<map::Pos> get_screen_changes(const map::Direction &move)
   {
     std::set<map::Pos> ret;
@@ -366,7 +366,7 @@ namespace czh::drawing
     g::snapshot.changes.clear();
     return ret;
   }
-  
+
   void next_zone(const map::Direction &direction)
   {
     switch (direction)
@@ -391,7 +391,7 @@ namespace czh::drawing
         break;
     }
   }
-  
+
   bool completely_out_of_zone(size_t id)
   {
     auto pos = view_id_at(id)->pos;
@@ -403,7 +403,7 @@ namespace czh::drawing
          || (g::visible_zone.y_min - 1 > pos.y)
          || (g::visible_zone.y_max + 1 <= pos.y));
   }
-  
+
   bool out_of_zone(size_t id)
   {
     auto pos = view_id_at(id)->pos;
@@ -424,7 +424,7 @@ namespace czh::drawing
          || (g::visible_zone.y_min + y_offset > pos.y)
          || (g::visible_zone.y_max - y_offset <= pos.y));
   }
-  
+
   int update_snapshot()
   {
     if (g::game_mode == czh::game::GameMode::SERVER || g::game_mode == czh::game::GameMode::NATIVE)
@@ -452,7 +452,7 @@ namespace czh::drawing
     }
     return -1;
   }
-  
+
   void draw()
   {
     if (g::game_suspend) return;
@@ -466,7 +466,7 @@ namespace czh::drawing
       g::output_inited = false;
       g::screen_height = term::get_height();
       g::screen_width = term::get_width();
-      
+
       static const std::string help =
           R"(
 Intro:
@@ -484,7 +484,7 @@ Tank:
   Auto Tank:
     HP: (11 - level) * 150, Lethality: (11 - level) * 15
     The higher level the tank is, the faster it moves.
-    
+
 Command:
   help [line]
     - Get this help.
@@ -492,7 +492,7 @@ Command:
 
   quit
     - Quit Tank.
-    
+
   pause
     - Pause.
 
@@ -509,15 +509,15 @@ Command:
     - Teleport A to B
     - A should be alive, and there should be space around B.
     - e.g.  tp 0 1   |  tp 0 1 1
-    
+
   revive [A id optional]
     - Revive A.
     - Default to revive all tanks.
-    
+
   summon [n] [level]
     - Summon n tanks with the given level.
     - e.g. summon 50 10
-    
+
   kill [A id optional]
     - Kill A.
     - Default to kill all tanks.
@@ -530,7 +530,7 @@ Command:
     Note:
        Clear is to delete rather than to kill, so the cleared tank can't revive.
        And the bullets of the cleared tank will also be cleared.
-      
+
   set [A id] [key] [value]
     - Set A's attribute below:
       - max_hp (int): Max hp of A. This will take effect when A is revived.
@@ -550,7 +550,7 @@ Command:
       - ttl (int, milliseconds): a message's time to live.
   set seed [seed]
       - seed (unsigned long long): the game map's seed.
-  
+
   tell [A id optional] [msg]
     - Send a message to A.
     - id (int): defaults to be -1, in which case all the players will receive the message.
@@ -558,7 +558,7 @@ Command:
 
   observe [A id]
     - Observe A.
-    
+
   server start [port]
     - Start Tank Server.
     - port (int): the server's port.
@@ -569,7 +569,7 @@ Command:
     - Connect to Tank Server.
     - ip (string): the server's IP.
     - port (int): the server's port.
-  
+
   disconnect
     - Disconnect from the Server.
 )";
@@ -639,9 +639,9 @@ Command:
           g::output_inited = false;
           return;
         }
-        
+
         auto move = map::Direction::END;
-        
+
         if (out_of_zone(g::tank_focus))
         {
           if (completely_out_of_zone(g::tank_focus))
@@ -657,7 +657,7 @@ Command:
             next_zone(move);
           }
         }
-        
+
         // output
         if (!g::output_inited)
         {
@@ -682,7 +682,7 @@ Command:
             }
           }
         }
-        
+
         auto now = std::chrono::steady_clock::now();
         auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_drawing);
         if (delta_time.count() != 0)
@@ -691,7 +691,7 @@ Command:
           g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
         }
         g::last_drawing = now;
-        
+
         // status bar
         term::move_cursor(term::TermPos(0, g::screen_height - 2));
         auto &focus_tank = g::snapshot.tanks[g::tank_focus];
@@ -700,7 +700,7 @@ Command:
                            + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
                            ")";
         std::string right = std::to_string(g::fps) + "fps ";
-        
+
         if (g::delay < 50)
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
@@ -713,7 +713,7 @@ Command:
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
-        
+
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
@@ -788,7 +788,7 @@ Command:
                      std::setw(atk_size), "ATK", "  ",
                      std::setw(gap_size), "Gap");
         size_t cursor_y = 2;
-        
+
         if (g::status_lineno > g::snapshot.tanks.size()) g::status_lineno = 1;
         size_t start_pos = g::status_lineno - 1;
         if (g::snapshot.tanks.size() < g::screen_height - 4)
@@ -860,7 +860,7 @@ Command:
             x = g::screen_width / 2 - 2;
             term::mvoutput({x, y++}, "TANK");
           }
-          
+
           term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
           term::mvoutput({x + 1, y + 4}, "Type '/help' to get help.");
           g::output_inited = true;
@@ -874,7 +874,7 @@ Command:
           term::clear();
           std::size_t cursor_y = 0;
           term::mvoutput({g::screen_width / 2 - 4, cursor_y++}, "Tank Help");
-          
+
           if (g::help_lineno > g::help_text.size()) g::help_lineno = 1;
           size_t start_pos = g::help_lineno - 1;
           if (g::help_text.size() < g::screen_height - 3)
