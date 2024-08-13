@@ -122,6 +122,7 @@ int main()
   while (true)
   {
     input::Input i = input::get_input();
+    msg::trace(g::user_id, "Input: " + std::to_string(static_cast<int>(i)));
     if (g::curr_page == game::Page::GAME)
     {
       switch (i)
@@ -138,6 +139,24 @@ int main()
         case input::Input::RIGHT:
           react(tank::NormalTankEvent::RIGHT);
           break;
+        case input::Input::LP_UP_BEGIN:
+          react(tank::NormalTankEvent::UP_AUTO);
+          break;
+        case input::Input::LP_DOWN_BEGIN:
+          react(tank::NormalTankEvent::DOWN_AUTO);
+        break;
+        case input::Input::LP_LEFT_BEGIN:
+          react(tank::NormalTankEvent::LEFT_AUTO);
+        break;
+        case input::Input::LP_RIGHT_BEGIN:
+          react(tank::NormalTankEvent::RIGHT_AUTO);
+        break;
+        case input::Input::LP_KEY_SPACE_BEGIN:
+          react(tank::NormalTankEvent::FIRE_AUTO);
+        break;
+        case input::Input::LP_END:
+          react(tank::NormalTankEvent::AUTO_OFF);
+        break;
         case input::Input::KEY_SPACE:
           react(tank::NormalTankEvent::FIRE);
           break;

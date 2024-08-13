@@ -460,7 +460,7 @@ namespace czh::cmd
         [](int id, std::string key, int value)
         {
           return helper::is_valid_id(id) &&
-                 (key == "max_hp" || key == "hp" || key == "target");
+                 (key == "max_hp" || key == "hp" || key == "target" || key == "gap");
         }); v)
       {
         auto [id, key, value] = *v;

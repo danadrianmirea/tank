@@ -376,12 +376,12 @@ namespace czh::tank
                               });
       if (itt != open_list.end()) //found
       {
-        way.clear();
-        waypos = 0;
+        route.clear();
+        route_pos = 0;
         auto &np = itt->second;
         while (!np.is_root() && np.get_pos() != np.get_last())
         {
-          way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
+          route.insert(route.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
           np = close_list[np.get_last()];
         }
         return;
@@ -390,17 +390,17 @@ namespace czh::tank
     return;
   }
 
-  void AutoTank::generate_random_way()
+  void AutoTank::generate_random_route()
   {
-    way.clear();
-    waypos = 0;
+    route.clear();
+    route_pos = 0;
     auto check = [this](map::Pos p)
     {
       return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
     };
     auto p = pos;
     int i = 0;
-    while (way.size() < 10 && i++ < 10)
+    while (route.size() < 10 && i++ < 10)
     {
       map::Pos pos_up(p.x, p.y + 1);
       map::Pos pos_down(p.x, p.y - 1);
@@ -412,28 +412,28 @@ namespace czh::tank
           if (check(pos_up))
           {
             p = pos_up;
-            way.insert(way.end(), 5, AutoTankEvent::UP);
+            route.insert(route.end(), 5, AutoTankEvent::UP);
           }
           break;
         case 1:
           if (check(pos_down))
           {
             p = pos_down;
-            way.insert(way.end(), 5, AutoTankEvent::DOWN);
+            route.insert(route.end(), 5, AutoTankEvent::DOWN);
           }
           break;
         case 2:
           if (check(pos_left))
           {
             p = pos_left;
-            way.insert(way.end(), 5, AutoTankEvent::LEFT);
+            route.insert(route.end(), 5, AutoTankEvent::LEFT);
           }
           break;
         case 3:
           if (check(pos_right))
           {
             p = pos_right;
-            way.insert(way.end(), 5, AutoTankEvent::RIGHT);
+            route.insert(route.end(), 5, AutoTankEvent::RIGHT);
           }
           break;
       }
@@ -443,7 +443,7 @@ namespace czh::tank
   void AutoTank::attacked(int lethality_)
   {
     Tank::attacked(lethality_);
-    generate_random_way();
+    generate_random_route();
   }
 
   void AutoTank::react()
@@ -452,7 +452,7 @@ namespace czh::tank
     gap_count = 0;
 
     // retarget
-    if (waypos == way.size())
+    if (route_pos == route.size())
     {
       for (int i = get_pos().x - 15; i < get_pos().x + 15; ++i)
       {
@@ -482,8 +482,8 @@ namespace czh::tank
       && tank::is_in_firing_line(info.bullet.range, pos, tp->get_pos()))
     {
       gap_count = info.gap - 5;
-      waypos = 0;
-      way.clear();
+      route_pos = 0;
+      route.clear();
       // correct direction
       int x = (int) get_pos().x - (int) tp->get_pos().x;
       int y = (int) get_pos().y - (int) tp->get_pos().y;
@@ -507,13 +507,13 @@ namespace czh::tank
     }
     else
     {
-      if (waypos >= way.size())
+      if (route_pos >= route.size())
       {
-        generate_random_way();
+        generate_random_route();
       }
-      if (waypos >= way.size()) return;
-      auto w = way[waypos];
-      ++waypos;
+      if (route_pos >= route.size()) return;
+      auto w = route[route_pos];
+      ++route_pos;
       switch (w)
       {
         case tank::AutoTankEvent::UP:
@@ -548,8 +548,8 @@ namespace czh::tank
       ret->target_pos = d.target_pos;
       ret->destination_pos = d.destination_pos;
 
-      ret->way = d.way;
-      ret->waypos = d.waypos;
+      ret->route = d.route;
+      ret->route_pos = d.route_pos;
 
       ret->gap_count = d.gap_count;
       return ret;
@@ -583,8 +583,8 @@ namespace czh::tank
       data.target_pos = tank->target_pos;
       data.destination_pos = tank->destination_pos;
 
-      data.way = tank->way;
-      data.waypos = tank->waypos;
+      data.route = tank->route;
+      data.route_pos = tank->route_pos;
 
       data.gap_count = tank->gap_count;
       ret.data.emplace<AutoTankData>(data);

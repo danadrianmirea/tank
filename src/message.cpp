@@ -50,7 +50,12 @@ namespace czh::msg
   {
     send_message(-1, id, s + content, priority);
   }
-  
+
+  void trace(int id, const std::string &c)
+  {
+    log_helper(id, "[TRACE] ", c, -20);
+  }
+
   void info(int id, const std::string &c)
   {
     log_helper(id, "[INFO] ", c, -10);
@@ -69,6 +74,11 @@ namespace czh::msg
   void critical(int id, const std::string &c)
   {
     log_helper(id, utils::color_256_fg("[CRITICAL] ", 9), c, 30);
+  }
+
+  void trace(size_t id, const std::string &c)
+  {
+    log_helper(static_cast<int>(id), "[TRACE] ", c, -20);
   }
   
   void info(size_t id, const std::string &c)

@@ -20,6 +20,7 @@
 #include "tank.h"
 #include "online.h"
 #include "term.h"
+#include "input.h"
 #include <functional>
 #include <string>
 #include <set>
@@ -71,7 +72,10 @@ namespace czh::g
   extern size_t history_pos;
   extern std::string hint;
   extern bool hint_applicable;
-  
+  extern std::chrono::high_resolution_clock::time_point last_press;
+  extern input::Input last_input_value;
+  extern input::LongPressMode long_press_mode;
+
   // command.cpp
   extern const std::set<std::string> client_cmds;
   extern const std::vector<cmd::CommandInfo> commands;

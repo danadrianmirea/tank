@@ -28,6 +28,14 @@ namespace czh::input
     LEFT,
     RIGHT,
     KEY_SPACE,
+  // long press event
+    LP_UP_BEGIN,
+    LP_DOWN_BEGIN,
+    LP_LEFT_BEGIN,
+    LP_RIGHT_BEGIN,
+    LP_KEY_SPACE_BEGIN,
+    LP_END,
+
     KEY_O,
     KEY_L,
     KEY_SLASH,
@@ -36,7 +44,7 @@ namespace czh::input
     KEY_ENTER,
     COMMAND
   };
-  
+
   enum class SpecialKey
   {
     CTRL_A = 1,
@@ -66,7 +74,12 @@ namespace czh::input
     
     BACKSPACE = 127
   };
-  
+
+  enum class LongPressMode
+  {
+    On, Off
+  };
+
   void edit_refresh_line(bool with_hint = true);
   
   Input get_input();

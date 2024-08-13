@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 namespace czh::g
 {
@@ -30,23 +31,26 @@ namespace czh::g
   size_t history_pos = 0;
   std::string hint{};
   bool hint_applicable = false;
+  std::chrono::high_resolution_clock::time_point last_press = std::chrono::high_resolution_clock::now();
+  input::Input last_input_value{};
+  input::LongPressMode long_press_mode = input::LongPressMode::Off;
 }
 
 namespace czh::input
 {
-  template<typename ...Args>
-  void cmd_output(Args &&...args)
+  template<typename... Args>
+  void cmd_output(Args &&... args)
   {
     std::lock_guard<std::mutex> l(g::drawing_mtx);
     term::output(std::forward<Args>(args)...);
   }
-  
+
   bool is_special_key(int c)
   {
     return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 26 ||
            c == 27 || c == 127;
   }
-  
+
   std::tuple<std::string, std::string> get_pattern()
   {
     if (g::cmd_line.empty()) return {"", ""};
@@ -72,7 +76,7 @@ namespace czh::input
     }
     return {before_pattern, pattern};
   }
-  
+
   void get_hint()
   {
     std::string before_pattern, pattern;
@@ -98,7 +102,7 @@ namespace czh::input
         return;
       }
     }
-    
+
     // more hint for debug :)
     if (before_pattern == "connect" && pattern == "1")
     {
@@ -112,21 +116,21 @@ namespace czh::input
       g::hint_applicable = true;
       return;
     }
-    
+
     if (before_pattern == "server" && pattern == "s")
     {
       g::hint = "tart";
       g::hint_applicable = true;
       return;
     }
-    
+
     if (before_pattern == "server start" && pattern.empty())
     {
       g::hint = "8080";
       g::hint_applicable = true;
       return;
     }
-    
+
     // history hint
     auto it_history = std::find_if(g::history.crbegin(), g::history.crend(),
                                    [](auto &&f) { return utils::begin_with(f, g::cmd_line); });
@@ -137,13 +141,13 @@ namespace czh::input
       return;
     }
   }
-  
+
   std::string highlight_cmd_line()
   {
     // TODO highlight
     return g::cmd_line;
   }
-  
+
   void cmdline_refresh(bool with_hint = true)
   {
     std::lock_guard<std::mutex> l(g::drawing_mtx);
@@ -178,13 +182,13 @@ namespace czh::input
     // save cmd_pos for next refresh
     g::cmd_last_cols = cursor_col;
   }
-  
+
   void edit_refresh_line(bool with_hint)
   {
     cmdline_refresh(with_hint);
     term::flush();
   }
-  
+
   void move_to_beginning()
   {
     if (g::cmd_pos == 0) return;
@@ -192,12 +196,12 @@ namespace czh::input
     g::cmd_pos = 0;
     g::cmd_last_cols = 0;
   }
-  
+
   void move_to_end(bool apply_hint = true)
   {
     if (g::cmd_pos == g::cmd_line.size() && g::hint.empty()) return;
     bool refresh = false;
-    
+
     if (apply_hint && !g::hint.empty() && g::hint_applicable)
     {
       g::cmd_line += g::hint;
@@ -206,14 +210,14 @@ namespace czh::input
       g::hint_applicable = false;
       refresh = true;
     }
-    
+
     auto origin_width = g::cmd_pos;
     g::cmd_pos = g::cmd_line.size();
     g::cmd_last_cols = g::cmd_pos;
     cmd_output("\x1b[", g::cmd_last_cols - origin_width, "C");
     if (refresh) edit_refresh_line();
   }
-  
+
   void move_to_word_beginning()
   {
     auto origin = g::cmd_pos;
@@ -234,7 +238,7 @@ namespace czh::input
     g::cmd_last_cols = g::cmd_pos;
     cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
   }
-  
+
   void move_to_word_end()
   {
     auto origin = g::cmd_pos;
@@ -251,7 +255,7 @@ namespace czh::input
     g::cmd_last_cols = g::cmd_pos;
     cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
   }
-  
+
   void move_left()
   {
     if (g::cmd_pos > 0)
@@ -262,7 +266,7 @@ namespace czh::input
       cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
     }
   }
-  
+
   void move_right()
   {
     if (g::cmd_pos < g::cmd_line.size())
@@ -273,14 +277,14 @@ namespace czh::input
       cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
     }
   }
-  
+
   void edit_delete()
   {
     if (g::cmd_pos >= g::cmd_line.size()) return;
     g::cmd_line.erase(g::cmd_pos, 1);
     edit_refresh_line();
   }
-  
+
   void edit_backspace()
   {
     if (g::cmd_pos == 0) return;
@@ -288,7 +292,7 @@ namespace czh::input
     --g::cmd_pos;
     edit_refresh_line();
   }
-  
+
   void edit_delete_next_word()
   {
     if (g::cmd_pos == g::cmd_line.size() - 1) return;
@@ -306,7 +310,7 @@ namespace czh::input
     g::cmd_line.erase(g::cmd_pos + 1, i - g::cmd_pos);
     edit_refresh_line();
   }
-  
+
   void edit_history_helper(bool prev)
   {
     if (g::history_pos == g::history.size() - 1)
@@ -317,7 +321,7 @@ namespace czh::input
     {
       auto origin = g::history_pos;
       while (g::history[origin] == g::history[g::history_pos])
-        // skip same command
+      // skip same command
       {
         if (prev)
         {
@@ -350,28 +354,28 @@ namespace czh::input
     edit_refresh_line();
     move_to_end(false);
   }
-  
+
   void edit_up()
   {
     edit_history_helper(true);
   }
-  
+
   void edit_down()
   {
     edit_history_helper(false);
   }
-  
+
   void edit_left()
   {
     move_left();
   }
-  
+
   void edit_right()
   {
     move_right();
   }
-  
-  Input get_input()
+
+  Input get_raw_input()
   {
     if (g::typing_command)
     {
@@ -435,7 +439,7 @@ namespace czh::input
               }
               edit_refresh_line(false);
               return Input::COMMAND;
-              
+
               break;
             case SpecialKey::CTRL_N:
               edit_down();
@@ -468,10 +472,10 @@ namespace czh::input
               g::cmd_line.erase(g::cmd_pos, origin_pos - g::cmd_pos);
               break;
             }
-            case SpecialKey::ESC:// Escape Sequence
+            case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-              // esc ?
+            // esc ?
               if (seq[0] != '[' && seq[0] != 'O')
               {
                 switch (seq[0])
@@ -547,7 +551,7 @@ namespace czh::input
                     }
                   }
                 }
-                  // esc 0
+                // esc 0
                 else if (seq[0] == 'O')
                 {
                   switch (seq[1])
@@ -653,10 +657,10 @@ namespace czh::input
             case SpecialKey::CTRL_P:
               edit_up();
               break;
-            case SpecialKey::ESC:// Escape Sequence
+            case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-              // esc ?
+            // esc ?
               if (seq[0] != '[' && seq[0] != 'O')
               {
                 continue;
@@ -699,7 +703,7 @@ namespace czh::input
                     }
                   }
                 }
-                  // esc 0
+                // esc 0
                 else if (seq[0] == 'O')
                 {
                   switch (seq[1])
@@ -783,5 +787,54 @@ namespace czh::input
       }
     }
     return Input::UNEXPECTED;
+  }
+
+  Input get_input()
+  {
+    constexpr int long_pressing_threshold = 80000;
+    if (g::typing_command)
+      return get_raw_input();
+
+    while (g::long_press_mode == LongPressMode::On)
+    {
+      while (!g::keyboard.kbhit())
+      {
+        auto d = std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::high_resolution_clock::now() - g::last_press);
+             if (d.count() > long_pressing_threshold)
+        {
+          g::long_press_mode = LongPressMode::Off;
+          return Input::LP_END;
+        }
+      }
+      Input raw = get_raw_input();
+      if (g::last_input_value != raw)
+      {
+        g::long_press_mode = LongPressMode::Off;
+        return Input::LP_END;
+      }
+      g::last_input_value = raw;
+      g::last_press = std::chrono::high_resolution_clock::now();
+    }
+
+    Input raw = get_raw_input();
+    Input ret = raw;
+
+    auto now = std::chrono::high_resolution_clock::now();
+    auto d = std::chrono::duration_cast<std::chrono::microseconds>(now - g::last_press);
+    if (raw == Input::UP || raw == Input::DOWN || raw == Input::LEFT || raw == Input::RIGHT || raw == Input::KEY_SPACE)
+    {
+      if (g::last_input_value == raw && d.count() < long_pressing_threshold)
+      {
+        if (g::long_press_mode == LongPressMode::Off)
+        {
+          ret = static_cast<Input>(static_cast<int>(raw) + 5);
+          g::long_press_mode = LongPressMode::On;
+        }
+      }
+    }
+    g::last_input_value = raw;
+    g::last_press = now;
+    return ret;
   }
 }

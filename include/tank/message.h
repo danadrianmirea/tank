@@ -30,14 +30,18 @@ namespace czh::msg
   
   bool operator<(const Message &m1, const Message &m2);
   
+  void trace(int id, const std::string &c);
+
   void info(int id, const std::string &c);
-  
+
   void warn(int id, const std::string &c);
   
   void error(int id, const std::string &c);
   
   void critical(int id, const std::string &c);
-  
+
+  void trace(size_t id, const std::string &c);
+
   void info(size_t id, const std::string &c);
   
   void warn(size_t id, const std::string &c);

@@ -29,7 +29,9 @@ namespace czh::tank
 {
   enum class NormalTankEvent
   {
-    UP, DOWN, LEFT, RIGHT, FIRE
+    UP, DOWN, LEFT, RIGHT, FIRE,
+    UP_AUTO, DOWN_AUTO, LEFT_AUTO, RIGHT_AUTO, FIRE_AUTO,
+    AUTO_OFF,
   };
   enum class AutoTankEvent
   {
@@ -44,8 +46,8 @@ namespace czh::tank
     std::size_t target_id;
     map::Pos target_pos;
     map::Pos destination_pos;
-    std::vector<tank::AutoTankEvent> way;
-    std::size_t waypos;
+    std::vector<AutoTankEvent> route;
+    std::size_t route_pos;
     int gap_count;
   };
   
@@ -56,7 +58,7 @@ namespace czh::tank
     map::Pos pos;
     map::Direction direction;
     bool hascleared;
-    
+
     std::variant<NormalTankData, AutoTankData> data;
     
     [[nodiscard]] bool is_auto() const
@@ -143,12 +145,34 @@ namespace czh::tank
     friend Tank *build_tank(const TankData &data);
     
     friend TankData get_tank_data(Tank *);
-  
+  private:
+    NormalTankEvent auto_event;
+    bool auto_driving;
   public:
     NormalTank(info::TankInfo info_, map::Pos pos_)
         : Tank(std::move(info_), pos_) {}
     
     ~NormalTank() override = default;
+
+    void start_auto_drive(NormalTankEvent e)
+    {
+      auto_event = e;
+      auto_driving = true;
+    }
+    void stop_auto_drive()
+    {
+      auto_driving = false;
+    }
+
+    NormalTankEvent get_auto_event() const
+    {
+      return auto_event;
+    }
+
+    bool is_auto_driving() const
+    {
+      return auto_driving;
+    }
   };
   
   AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to);
@@ -199,13 +223,13 @@ namespace czh::tank
     map::Pos target_pos;
     map::Pos destination_pos;
     
-    std::vector<AutoTankEvent> way;
-    std::size_t waypos;
+    std::vector<AutoTankEvent> route;
+    std::size_t route_pos;
     
     int gap_count;
   public:
     AutoTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(std::move(info_), pos_), waypos(0), target_id(0), gap_count(0) {}
+        : Tank(std::move(info_), pos_), route_pos(0), target_id(0), gap_count(0) {}
     
     ~AutoTank() override = default;
     
@@ -215,7 +239,7 @@ namespace czh::tank
     
     void attacked(int lethality_) override;
     
-    void generate_random_way();
+    void generate_random_route();
   };
 }
 #endif

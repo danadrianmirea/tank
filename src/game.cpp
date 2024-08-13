@@ -36,7 +36,7 @@ namespace czh::g
   std::mutex tank_reacting_mtx;
   std::map<std::size_t, tank::Tank *> tanks;
   std::list<bullet::Bullet *> bullets;
-  std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
+  std::vector<std::pair<std::size_t, tank::NormalTankEvent> > normal_tank_events;
   size_t next_id = 0;
 }
 
@@ -61,60 +61,64 @@ namespace czh::game
     }
     return p[utils::randnum<size_t>(0, p.size())];
   }
-  
+
   tank::Tank *id_at(size_t id)
   {
     auto it = g::tanks.find(id);
     if (it == g::tanks.end()) return nullptr;
     return it->second;
   }
-  
+
   std::size_t add_tank(const map::Pos &pos)
   {
-    g::tanks.insert({g::next_id, new tank::NormalTank
-        (info::TankInfo{
-            .max_hp = 10000,
-            .name = "Tank " + std::to_string(g::next_id),
-            .id = g::next_id,
-            .type = info::TankType::NORMAL,
-            .bullet = info::BulletInfo
-                {
-                    .hp = 1,
-                    .lethality = 100,
-                    .range = 30,
-                }
-        }, pos)});
+    g::tanks.insert({
+      g::next_id, new tank::NormalTank(info::TankInfo{
+                                         .max_hp = 10000,
+                                         .name = "Tank " + std::to_string(g::next_id),
+                                         .id = g::next_id,
+                                         .type = info::TankType::NORMAL,
+                                         .bullet = info::BulletInfo
+                                         {
+                                           .hp = 1,
+                                           .lethality = 100,
+                                           .range = 30,
+                                         }
+                                       }, pos)
+    });
     ++g::next_id;
     return g::next_id - 1;
   }
-  
+
   std::size_t add_tank()
   {
     auto pos = get_available_pos();
     utils::tank_assert(pos.has_value(), "No available space.");
     return add_tank(*pos);
   }
-  
+
   std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos)
   {
-    g::tanks.insert({g::next_id,
-                     new tank::AutoTank(
-                         info::TankInfo{
-                             .max_hp = static_cast<int>(11 - lvl) * 150,
-                             .name = "AutoTank " + std::to_string(g::next_id),
-                             .id = g::next_id,
-                             .gap = static_cast<int>(10 - lvl),
-                             .type = info::TankType::AUTO,
-                             .bullet = info::BulletInfo
-                                 {
-                                     .hp = 1,
-                                     .lethality = static_cast<int>(11 - lvl) * 15,
-                                     .range = 30
-                                 }}, pos)});
+    g::tanks.insert({
+      g::next_id,
+      new tank::AutoTank(
+        info::TankInfo{
+          .max_hp = static_cast<int>(11 - lvl) * 150,
+          .name = "AutoTank " + std::to_string(g::next_id),
+          .id = g::next_id,
+          .gap = static_cast<int>(10 - lvl),
+          .type = info::TankType::AUTO,
+          .bullet = info::BulletInfo
+          {
+            .hp = 1,
+            .lethality = static_cast<int>(11 - lvl) * 15,
+            .range = 30
+          }
+        }, pos)
+    });
     ++g::next_id;
     return g::next_id - 1;
   }
-  
+
   std::size_t add_auto_tank(std::size_t lvl)
   {
     auto pos = get_available_pos();
@@ -125,7 +129,7 @@ namespace czh::game
     }
     return add_auto_tank(lvl, *pos);
   }
-  
+
   void revive(std::size_t id)
   {
     auto pos = get_available_pos();
@@ -140,8 +144,8 @@ namespace czh::game
       g::tank_focus = 0;
     }
   }
-  
-  [[nodiscard]]std::vector<std::size_t> get_alive()
+
+  [[nodiscard]] std::vector<std::size_t> get_alive()
   {
     std::vector<std::size_t> ret;
     for (std::size_t i = 0; i < g::tanks.size(); ++i)
@@ -153,7 +157,7 @@ namespace czh::game
     }
     return ret;
   }
-  
+
   void clear_death()
   {
     for (auto it = g::bullets.begin(); it != g::bullets.end();)
@@ -169,7 +173,7 @@ namespace czh::game
         ++it;
       }
     }
-    
+
     for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
     {
       auto tank = *it;
@@ -179,57 +183,86 @@ namespace czh::game
       }
     }
   }
-  
+
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
     if (!g::game_running) return;
-    
+
     std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
     if (id_at(id)->is_alive())
     {
-      g::normal_tank_events.emplace_back(std::make_pair(id, event));
+      g::normal_tank_events.emplace_back(id, event);
     }
   }
-  
+
   void mainloop()
   {
     if (!g::game_running) return;
-    
+
     std::lock_guard<std::mutex> l(g::mainloop_mtx);
-    //normal tank
-    for (auto &r: g::normal_tank_events)
-    {
-      auto tank = id_at(r.first);
-      switch (r.second)
-      {
-        case tank::NormalTankEvent::UP:
-          tank->up();
-          break;
-        case tank::NormalTankEvent::DOWN:
-          tank->down();
-          break;
-        case tank::NormalTankEvent::LEFT:
-          tank->left();
-          break;
-        case tank::NormalTankEvent::RIGHT:
-          tank->right();
-          break;
-        case tank::NormalTankEvent::FIRE:
-          tank->fire();
-          break;
-      }
-    }
-    g::normal_tank_events.clear();
-    
+
     //auto tank
     for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
     {
       utils::tank_assert(it->second != nullptr);
-      if (it->second->is_alive() && it->second->is_auto())
+      if (it->second->is_alive())
       {
-        dynamic_cast<tank::AutoTank *>(it->second)->react();
+        if(it->second->is_auto())
+          dynamic_cast<tank::AutoTank *>(it->second)->react();
+        else
+        {
+          auto n = dynamic_cast<tank::NormalTank *>(it->second);
+          if(n->is_auto_driving())
+          {
+            g::normal_tank_events.emplace_back(it->first, n->get_auto_event());
+          }
+        }
       }
     }
+
+    //normal tank
+    for (auto &r: g::normal_tank_events)
+    {
+      auto tank = dynamic_cast<tank::NormalTank *>(id_at(r.first));
+      switch (r.second)
+      {
+        case tank::NormalTankEvent::UP:
+          tank->up();
+        break;
+        case tank::NormalTankEvent::DOWN:
+          tank->down();
+        break;
+        case tank::NormalTankEvent::LEFT:
+          tank->left();
+        break;
+        case tank::NormalTankEvent::RIGHT:
+          tank->right();
+        break;
+        case tank::NormalTankEvent::FIRE:
+          tank->fire();
+        break;
+        case tank::NormalTankEvent::UP_AUTO:
+          tank->start_auto_drive(tank::NormalTankEvent::UP);
+        break;
+        case tank::NormalTankEvent::DOWN_AUTO:
+          tank->start_auto_drive(tank::NormalTankEvent::DOWN);
+        break;
+        case tank::NormalTankEvent::LEFT_AUTO:
+          tank->start_auto_drive(tank::NormalTankEvent::LEFT);
+        break;
+        case tank::NormalTankEvent::RIGHT_AUTO:
+          tank->start_auto_drive(tank::NormalTankEvent::RIGHT);
+        break;
+        case tank::NormalTankEvent::FIRE_AUTO:
+          tank->start_auto_drive(tank::NormalTankEvent::FIRE);
+        break;
+        case tank::NormalTankEvent::AUTO_OFF:
+          tank->stop_auto_drive();
+        break;
+      }
+    }
+    g::normal_tank_events.clear();
+
     // bullet move
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
     {
@@ -238,11 +271,11 @@ namespace czh::game
         (*it)->react();
       }
     }
-    
+
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
     {
       if (!(*it)->is_alive()) continue;
-      
+
       if ((g::game_map.count(map::Status::BULLET, (*it)->get_pos()) > 1)
           || g::game_map.has(map::Status::TANK, (*it)->get_pos()))
       {
@@ -259,7 +292,7 @@ namespace czh::game
           (*it1)->kill();
           attacker = (*it1)->get_tank();
         }
-        
+
         if (g::game_map.has(map::Status::TANK, (*it)->get_pos()))
         {
           if (auto tank = g::game_map.at((*it)->get_pos()).get_tank(); tank != nullptr)
@@ -286,7 +319,7 @@ namespace czh::game
     }
     clear_death();
   }
-  
+
   void quit()
   {
     for (auto it = g::tanks.begin(); it != g::tanks.end();)
@@ -294,11 +327,11 @@ namespace czh::game
       delete it->second;
       it = g::tanks.erase(it);
     }
-    if (g::game_mode == game::GameMode::CLIENT)
+    if (g::game_mode == GameMode::CLIENT)
     {
       g::online_client.disconnect();
     }
-    else if (g::game_mode == game::GameMode::SERVER)
+    else if (g::game_mode == GameMode::SERVER)
     {
       g::online_server.stop();
     }
