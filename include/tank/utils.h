@@ -24,32 +24,32 @@
 namespace czh::utils
 {
   template<typename T>
-  T randnum(T a, T b)// [a, b)
+  T randnum(T a, T b) // [a, b)
   {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<T> u(a, b - 1);
     return u(gen);
   }
-  
+
   template<typename BeginIt, typename EndIt>
   concept ItRange =
-  requires(BeginIt begin_it, EndIt end_it)
-  {
-    { ++begin_it };
-    { *begin_it };
-    requires std::is_same_v<std::decay_t<decltype(*begin_it)>, std::string_view>;
-    { begin_it != end_it };
-  };
+      requires(BeginIt begin_it, EndIt end_it)
+      {
+        { ++begin_it };
+        { *begin_it };
+        requires std::is_same_v<std::decay_t<decltype(*begin_it)>, std::string_view>;
+        { begin_it != end_it };
+      };
   template<typename T>
   concept Container =
-  requires(T value)
-  {
-    { value.begin() };
-    { value.end() };
-    requires ItRange<decltype(value.begin()), decltype(value.end())>;
-  };
-  
+      requires(T value)
+      {
+        { value.begin() };
+        { value.end() };
+        requires ItRange<decltype(value.begin()), decltype(value.end())>;
+      };
+
   template<Container T>
   T split(std::string_view str, char delim)
   {
@@ -70,7 +70,7 @@ namespace czh::utils
     }
     return ret;
   }
-  
+
   template<Container T>
   T split(std::string_view str, std::string_view delims)
   {
@@ -91,85 +91,111 @@ namespace czh::utils
     }
     return ret;
   }
-  
+
+  template<typename It, typename UnaryPred>
+  constexpr std::vector<It> find_all_if(It first, It last, UnaryPred p)
+  {
+    std::vector<It> ret;
+    for (; first != last; ++first)
+    {
+      if (p(*first))
+        ret.insert(ret.end(), first);
+    }
+    return ret;
+  }
+
   void tank_assert(bool b, const std::string &detail_ = "Assertion failed.");
-  
+
   template<typename T>
-  requires (!std::is_same_v<std::string, std::decay_t<T>>) &&
-           (!std::is_same_v<const char *, std::decay_t<T>>)
+    requires (!std::is_same_v<std::string, std::decay_t<T> >) &&
+             (!std::is_same_v<const char *, std::decay_t<T> >)
   std::string to_str(T &&a)
   {
     return std::to_string(std::forward<T>(a));
   }
-  
+
   std::string to_str(const std::string &a);
-  
+
   std::string to_str(const char *&a);
-  
+
   std::string to_str(char a);
-  
-  template<typename T, typename ...Args>
+
+  template<typename T, typename... Args>
   std::string join(char, T &&arg)
   {
     return to_str(arg);
   }
-  
-  template<typename T, typename ...Args>
-  std::string join(char delim, T &&arg, Args &&...args)
+
+  template<typename T, typename... Args>
+  std::string join(char delim, T &&arg, Args &&... args)
   {
     return to_str(arg) + delim + join(delim, std::forward<Args>(args)...);
   }
-  
-  template<typename ...Args>
-  std::string join(char delim, Args &&...args)
+
+  template<typename... Args>
+  std::string join(char delim, Args &&... args)
   {
     return join(delim, std::forward<Args>(args)...);
   }
-  
-  template<typename T, typename ...Args>
+
+  template<typename T, typename... Args>
   std::string contact(T &&arg)
   {
     return to_str(arg);
   }
-  
-  template<typename T, typename ...Args>
-  std::string contact(T &&arg, Args &&...args)
+
+  template<typename T, typename... Args>
+  std::string contact(T &&arg, Args &&... args)
   {
     return to_str(arg) + contact(std::forward<Args>(args)...);
   }
-  
-  template<typename ...Args>
-  std::string contact(Args &&...args)
+
+  template<typename... Args>
+  std::string contact(Args &&... args)
   {
     return contact(std::forward<Args>(args)...);
   }
-  
+
   bool begin_with(const std::string &a, const std::string &b);
-  
-  
+
+  bool is_ip(const std::string &s);
+
+  bool is_port(int p);
+
+  bool is_valid_id(int id);
+
+  bool is_alive_id(int id);
+
+  bool is_valid_id(std::string s);
+
+  bool is_alive_id(std::string s);
+
+  bool is_integer(const std::string &r);
+
+
   size_t escape_code_len(const std::string::const_iterator &beg, const std::string::const_iterator &end);
-  
+
   size_t escape_code_len(const std::string &str);
-  
-  template<typename ...Args>
-  size_t escape_code_len(const std::string &str, Args &&...args)
+
+  template<typename... Args>
+  size_t escape_code_len(const std::string &str, Args &&... args)
   {
     return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
   }
-  
+
   // Xterm 256 color
   // https://www.ditig.com/publications/256-colors-cheat-sheet
   std::string color_256_fg(const std::string &str, int color);
-  
+
   std::string color_256_bg(const std::string &str, int color);
 
-//  struct RGB
-//  {
-//    int r;
-//    int g;
-//    int b;
-//  };
-  
+  //  struct RGB
+  //  {
+  //    int r;
+  //    int g;
+  //    int b;
+  //  };
+
   //std::string color_rgb_fg(const std::string &str, const RGB& rgb);
   //std::string color_rgb_bg(const std::string &str, const RGB& rgb);
 }

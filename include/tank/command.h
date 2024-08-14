@@ -37,10 +37,18 @@ namespace czh::cmd
     bool is_alive_id(int s);
   }
 
+  struct Hint
+  {
+    std::string hint;
+    bool applicable;
+  };
+  using Hints = std::vector<Hint>;
+  using HintProvider = std::function<Hints(const std::string&)>;
   struct CommandInfo
   {
     std::string cmd;
     std::string args;
+    std::vector<HintProvider> hint_providers;
   };
 
   namespace details

@@ -227,6 +227,8 @@ int main()
         g::typing_command = true;
         g::cmd_line.clear();
         g::cmd_pos = 0;
+        g::hint.clear();
+        g::hint_pos = 0;
         g::history.emplace_back("");
         g::history_pos = g::history.size() - 1;
         input::edit_refresh_line();

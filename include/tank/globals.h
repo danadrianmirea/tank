@@ -70,11 +70,12 @@ namespace czh::g
   extern size_t cmd_last_cols;
   extern std::vector<std::string> history;
   extern size_t history_pos;
-  extern std::string hint;
-  extern bool hint_applicable;
+  extern cmd::Hints hint;
+  extern size_t hint_pos;
   extern std::chrono::high_resolution_clock::time_point last_press;
   extern input::Input last_input_value;
   extern input::LongPressMode long_press_mode;
+  extern long long_pressing_threshold;
 
   // command.cpp
   extern const std::set<std::string> client_cmds;

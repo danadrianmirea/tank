@@ -14,12 +14,13 @@
 #include "tank/globals.h"
 #include "tank/game.h"
 #include "tank/term.h"
+#include "tank/utils.h"
 #include "tank/command.h"
 #include <string>
 #include <vector>
 #include <mutex>
-#include <regex>
 #include <set>
+#include <iterator>
 
 namespace czh::g
 {
@@ -27,72 +28,226 @@ namespace czh::g
   {
     "fill", "tp", "kill", "clear", "summon", "revive", "set", "tell", "pause", "continue"
   };
+
+  cmd::HintProvider fixed_provider(const cmd::Hints &hints, const std::string &cond = "")
+  {
+    return [hints, cond](const std::string &s)
+    {
+      if (cond.empty() || cond == s)
+        return hints;
+      return cmd::Hints{};
+    };
+  }
+
+  cmd::HintProvider id_provider(const std::function<bool(decltype(g::tanks)::value_type)> &pred,
+                                const std::string &cond = "")
+  {
+    return [pred, cond](const std::string &s)
+    {
+      if (cond.empty() || cond == s)
+      {
+        cmd::Hints ret;
+        for (auto &r: g::tanks)
+        {
+          if (pred(r))
+            ret.emplace_back(std::to_string(r.first), true);
+        }
+        return ret;
+      }
+      return cmd::Hints{};
+    };
+  }
+
+  cmd::HintProvider valid_id_provider(const std::string &cond = "")
+  {
+    return id_provider([](auto &&r) { return true; }, cond);
+  }
+
+  cmd::HintProvider alive_id_provider(const std::string &cond = "")
+  {
+    return id_provider([](auto &&r) { return r.second->is_alive(); }, cond);
+  }
+
+  cmd::HintProvider valid_auto_id_provider(const std::string &cond = "")
+  {
+    return id_provider([](auto &&r) { return r.second->is_auto(); }, cond);
+  }
+
+  cmd::HintProvider range_provider(int a, int b, const std::string &cond = "") //[a, b)
+  {
+    cmd::Hints ret;
+    for (size_t i = a; i < b; ++i)
+      ret.emplace_back(std::to_string(i), true);
+    return [ret, cond](const std::string &s)
+    {
+      if (cond.empty() || cond == s)
+        return ret;
+      return cmd::Hints{};
+    };
+  }
+
+  cmd::HintProvider concat(const cmd::HintProvider &a, const cmd::HintProvider &b)
+  {
+    return [a, b](const std::string &s)
+    {
+      auto ret = a(s);
+      auto ret_b = b(s);
+      ret.insert(ret.end(),
+                 std::make_move_iterator(ret_b.begin()), std::make_move_iterator(ret_b.end()));
+      return ret;
+    };
+  }
+
   const std::vector<cmd::CommandInfo> commands{
-    {"help", "[line]"},
-    {"server", "start [port] (or stop)"},
-    {"connect", "[ip] [port]"},
-    {"disconnect", ""},
-    {"fill", "[status] [A x,y] [B x,y optional]"},
-    {"tp", "[A id] ([B id] or [B x,y])"},
-    {"revive", "id"},
-    {"summon", "[n] [level]"},
-    {"observe", "[id]"},
-    {"kill", "[id optional]"},
-    {"clear", "[id optional] (or death)"},
-    {"set", "[id] (bullet) [attr] [value]"},
-    {"tell", "[id, optional], [msg]"},
-    {"pause", "** No arguments **"},
-    {"continue", "** No arguments **"},
-    {"quit", "** No arguments **"}
+    {"help", "[line]", {
+      [](const std::string &s)
+      {
+        cmd::Hints ret;
+        for (size_t i = 1; i < g::help_text.size() + 1; ++i)
+          ret.emplace_back(std::to_string(i), true);
+        return ret;
+      }
+    }},
+    {
+      "server", "start [port] (or stop)", {
+        fixed_provider({{"start", true}, {"stop", true}}),
+        fixed_provider({{"[port]", false}}, "start")
+      }
+    },
+    {
+      "connect", "[ip] [port]", {
+        fixed_provider({{"[ip]", false}}),
+        fixed_provider({{"[port]", false}})
+      }
+    },
+    {"disconnect", "** No arguments **", {}},
+    {
+      "fill", "[status] [A x,y] [B x,y optional]", {
+        fixed_provider({{"0", true}, {"1", true}}),
+        fixed_provider({{"[Point A x-coordinate, int]", false}}),
+        fixed_provider({{"[Point A y-coordinate, int]", false}}),
+        fixed_provider({{"[Point B x-coordinate, int]", false}}),
+        fixed_provider({{"[Point B y-coordinate, int]", false}}),
+      }
+    },
+    {
+      "tp", "[A id] ([B id] or [B x,y])", {
+        alive_id_provider(),
+        concat(alive_id_provider(), fixed_provider({{"[to x-coordinate, int]", false}})),
+        [](const std::string &s)
+        {
+          if (utils::is_valid_id(s))
+            return cmd::Hints{};
+          return cmd::Hints{{"[to y-coordinate, int]", false}};
+        }
+      }
+    },
+    {"revive", "id", {valid_id_provider()}},
+    {
+      "summon", "[n] [level]", {
+        fixed_provider({{"[number of tanks, int]", false}}),
+        range_provider(1, 11)
+      }
+    },
+    {"observe", "[id]", {alive_id_provider()}},
+    {"kill", "[id optional]", {alive_id_provider()}},
+    {
+      "clear", "[id optional] (or death)", {
+        concat(fixed_provider({{"death", true}}), valid_auto_id_provider())
+      }
+    },
+    {
+      "set", "[id] (bullet) [attr] [value]", {
+        // Arg 0: ID or Game setting fields
+        concat(fixed_provider({
+                 {"tick", true}, {"seed", true},
+                 {"msgTTL", true}, {"longPressTH", true}
+               }), valid_id_provider()),
+        // Arg 1: Tank setting fields or Game setting's value
+        [](const std::string &last_arg)
+        {
+          if (last_arg == "tick")
+            return cmd::Hints{{"[Tick, int, milliseconds]", false}};
+          else if (last_arg == "seed")
+            return cmd::Hints{{"[Seed, int]", false}};
+          else if (last_arg == "msgTTL")
+            return cmd::Hints{{"[TTL, int, milliseconds]", false}};
+          else if (last_arg == "longPressTH")
+            return cmd::Hints{{"[Threshold, int, microseconds]", false}};
+          else // Tank's
+          {
+            if (utils::is_valid_id(last_arg))
+            {
+              if (game::id_at(std::stoull(last_arg))->is_auto())
+              {
+                return cmd::Hints{
+                  {"bullet", true}, {"name", true},
+                  {"max_hp", true}, {"hp", true}, {"target", true}
+                };
+              }
+              return cmd::Hints{
+                {"bullet", true}, {"name", true},
+                {"max_hp", true}, {"hp", true}
+              };
+            }
+          }
+          return cmd::Hints{};
+        },
+        // Arg 2: Tank setting's value or bullet setting field
+        [](const std::string &last_arg)
+        {
+          if (last_arg == "bullet")
+            return cmd::Hints{{"hp", true}, {"lethality", true}, {"range", true}};
+          else if (last_arg == "name")
+            return cmd::Hints{{"[Name, string]", false}};
+          else if (last_arg == "max_hp")
+            return cmd::Hints{{"[Max HP, int]", false}};
+          else if (last_arg == "hp")
+            return cmd::Hints{{"[HP, int]", false}};
+          else if (last_arg == "target")
+            return cmd::Hints{{"[Target, ID]", false}};
+          return cmd::Hints{};
+        },
+        // Arg 3: Bullet setting's value
+        [](const std::string &last_arg)
+        {
+          if (last_arg == "hp")
+            return cmd::Hints{{"[HP of bullet, int]", false}};
+          else if (last_arg == "lethality")
+            return cmd::Hints{{"[Lethality of bullet, int]", false}};
+          else if (last_arg == "range")
+            return cmd::Hints{{"[Range of bullet, int]", false}};
+          return cmd::Hints{};
+        },
+      }
+    },
+    {"tell", "[id, optional], [msg]", {valid_id_provider(), fixed_provider({{"[Message, string]", false}})}},
+    {"pause", "** No arguments **", {}},
+    {"continue", "** No arguments **", {}},
+    {"quit", "** No arguments **", {}}
   };
 }
 
 namespace czh::cmd
 {
-  namespace helper
-  {
-    bool is_ip(const std::string &s)
-    {
-      std::regex ipv4("^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)($|(?!\\.$)\\.)){4}$");
-      std::regex ipv6("^(?:(?:[\\da-fA-F]{1,4})($|(?!:$):)){8}$");
-      return std::regex_search(s, ipv4) || std::regex_search(s, ipv6);
-    }
-
-    bool is_port(int p)
-    {
-      return p > 0 && p < 65536;
-    }
-
-    bool is_valid_id(int id)
-    {
-      return game::id_at(id) != nullptr;
-    }
-
-    bool is_alive_id(int id)
-    {
-      if (!is_valid_id(id)) return false;
-      return game::id_at(id)->is_alive();
-    }
-  }
-
   CmdCall parse(const std::string &cmd)
   {
     if (cmd.empty()) return {};
-    auto it = cmd.begin();
-    auto skip_space = [&it, &cmd] { while (it < cmd.end() && std::isspace(*it)) ++it; };
+    auto it = cmd.cbegin();
+    auto skip_space = [&it, &cmd] { while (it < cmd.cend() && std::isspace(*it)) ++it; };
     skip_space();
 
     std::string name;
-    while (it < cmd.end() && !std::isspace(*it))
+    while (it < cmd.cend() && !std::isspace(*it))
       name += *it++;
 
     std::vector<details::Arg> args;
-    while (it < cmd.end())
+    while (it < cmd.cend())
     {
       skip_space();
       std::string temp;
       bool maybe_int = true;
-      while (it < cmd.end() && !std::isspace(*it))
+      while (it < cmd.cend() && !std::isspace(*it))
       {
         if (!std::isdigit(*it) && *it != '+' && *it != '-') maybe_int = false;
         temp += *it++;
@@ -258,7 +413,7 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](int id, int to_id)
         {
-          return helper::is_alive_id(id) && helper::is_alive_id(to_id);
+          return utils::is_alive_id(id) && utils::is_alive_id(to_id);
         }); v)
       {
         int to_id;
@@ -282,7 +437,7 @@ namespace czh::cmd
       else if (auto v = call.get_if(
         [&check](int id, int x, int y)
         {
-          return helper::is_alive_id(id) && check(map::Pos(x, y));
+          return utils::is_alive_id(id) && check(map::Pos(x, y));
         }); v)
       {
         std::tie(id, to_pos.x, to_pos.y) = *v;
@@ -308,7 +463,7 @@ namespace czh::cmd
         msg::info(user_id, "Revived all tanks.");
         return;
       }
-      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([](int id) { return utils::is_valid_id(id); }); v)
       {
         std::tie(id) = *v;
       }
@@ -358,7 +513,7 @@ namespace czh::cmd
         game::clear_death();
         msg::info(user_id, "Killed all tanks.");
       }
-      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([](int id) { return utils::is_valid_id(id); }); v)
       {
         auto [id] = *v;
         auto t = game::id_at(id);
@@ -387,7 +542,7 @@ namespace czh::cmd
             r.second->kill();
           }
         }
-        game::clear_death();
+        game::clear_death(); // before delete
         for (auto it = g::tanks.begin(); it != g::tanks.end();)
         {
           if (!it->second->is_auto())
@@ -419,7 +574,7 @@ namespace czh::cmd
             r.second->kill();
           }
         }
-        game::clear_death();
+        game::clear_death(); // before delete
         for (auto it = g::tanks.begin(); it != g::tanks.end();)
         {
           if (!it->second->is_auto() || it->second->is_alive())
@@ -434,7 +589,8 @@ namespace czh::cmd
         }
         msg::info(user_id, "Cleared all died tanks.");
       }
-      else if (auto v = call.get_if([](int id) { return helper::is_valid_id(id) || id != 0; }); v)
+      else if (auto v = call.get_if(
+        [](int id) { return utils::is_valid_id(id) && game::id_at(id)->is_auto(); }); v)
       {
         auto [id] = *v;
         for (auto &r: g::bullets)
@@ -446,9 +602,9 @@ namespace czh::cmd
         }
         auto t = game::id_at(id);
         t->kill();
+        game::clear_death(); // before delete
         delete t;
         g::tanks.erase(id);
-        game::clear_death();
         msg::info(user_id, "ID: " + std::to_string(id) + " was cleared.");
       }
       else goto invalid_args;
@@ -459,8 +615,8 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](int id, std::string key, int value)
         {
-          return helper::is_valid_id(id) &&
-                 (key == "max_hp" || key == "hp" || key == "target" || key == "gap");
+          return utils::is_valid_id(id) &&
+                 (key == "max_hp" || key == "hp" || key == "target");
         }); v)
       {
         auto [id, key, value] = *v;
@@ -498,7 +654,7 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [](int id, std::string key, std::string value) { return helper::is_valid_id(id) && key == "name"; }); v)
+        [](int id, std::string key, std::string value) { return utils::is_valid_id(id) && key == "name"; }); v)
       {
         auto [id, key, value] = *v;
         if (key == "name")
@@ -514,7 +670,8 @@ namespace czh::cmd
         {
           return (key == "tick" && arg > 0)
                  || (key == "seed")
-                 || (key == "msg_ttl" && arg > 0);
+                 || (key == "msgTTL" && arg > 0)
+                 || (key == "longPressTH" && arg > 0);
         }); v)
       {
         auto [option, arg] = *v;
@@ -529,16 +686,21 @@ namespace czh::cmd
           g::output_inited = false;
           msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
-        else if (option == "msg_ttl")
+        else if (option == "msgTTL")
         {
           g::msg_ttl = std::chrono::milliseconds(arg);
           msg::info(user_id, "Message TTL was set to " + std::to_string(arg) + ".");
+        }
+        else if (option == "longPressTH")
+        {
+          g::long_pressing_threshold = arg;
+          msg::info(user_id, "Long press threshold was set to " + std::to_string(arg) + ".");
         }
       }
       else if (auto v = call.get_if(
         [](int id, std::string f, std::string key, int value)
         {
-          return helper::is_valid_id(id) && f == "bullet"
+          return utils::is_valid_id(id) && f == "bullet"
                  && (key == "hp" || key == "lethality" || key == "range");
         }); v)
       {
@@ -553,7 +715,8 @@ namespace czh::cmd
         {
           game::id_at(id)->get_info().bullet.lethality = value;
           msg::info(user_id,
-                    "The lethality of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value) +
+                    "The lethality of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value)
+                    +
                     ".");
         }
         else if (key == "range")
@@ -571,7 +734,7 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](std::string key, int port)
         {
-          return g::game_mode == game::GameMode::NATIVE && key == "start" && helper::is_port(port);
+          return g::game_mode == game::GameMode::NATIVE && key == "start" && utils::is_port(port);
         }); v)
       {
         auto [s, port] = *v;
@@ -607,7 +770,7 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](std::string ip, int port)
         {
-          return g::game_mode == game::GameMode::NATIVE && helper::is_ip(ip) && helper::is_port(port);
+          return g::game_mode == game::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port);
         }); v)
       {
         auto [ip, port] = *v;
@@ -643,7 +806,7 @@ namespace czh::cmd
       int id = -1;
       std::string msg;
       if (auto v = call.get_if(
-        [](int id, std::string msg) { return helper::is_valid_id(id); }); v)
+        [](int id, std::string msg) { return utils::is_valid_id(id); }); v)
       {
         std::tie(id, msg) = *v;
       }
@@ -667,11 +830,11 @@ namespace czh::cmd
     return;
   invalid_args:
     auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
-                               [&call](auto &&f) { return f.cmd == call.name; });
-    if(it!= g::commands.end())
+                           [&call](auto &&f) { return f.cmd == call.name; });
+    if (it != g::commands.end())
       msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
     else[[unlikely]]
-      msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
+        msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
     return;
   }
 }

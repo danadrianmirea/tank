@@ -546,10 +546,12 @@ Command:
         When a bullet hits the wall, its hp decreases by one. That means it can bounce "hp - 1" times.
   set tick [tick]
       - tick (int, milliseconds): minimum time of the game's(or server's) mainloop.
-  set msg_ttl [ttl]
-      - ttl (int, milliseconds): a message's time to live.
+  set msgTTL [ttl]
+      - TTL (int, milliseconds): a message's time to live.
+  set longPressTH [threshold]
+      - threshold (int, microseconds): long pressing threshold.
   set seed [seed]
-      - seed (unsigned long long): the game map's seed.
+      - seed (int): the game map's seed.
 
   tell [A id optional] [msg]
     - Send a message to A.

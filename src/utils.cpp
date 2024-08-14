@@ -12,9 +12,72 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/utils.h"
+#include "tank/game.h"
+#include <regex>
 
 namespace czh::utils
 {
+  bool is_ip(const std::string &s)
+  {
+    std::regex ipv4("^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)($|(?!\\.$)\\.)){4}$");
+    std::regex ipv6("^(?:(?:[\\da-fA-F]{1,4})($|(?!:$):)){8}$");
+    return std::regex_search(s, ipv4) || std::regex_search(s, ipv6);
+  }
+
+  bool is_port(int p)
+  {
+    return p > 0 && p < 65536;
+  }
+
+  bool is_valid_id(int id)
+  {
+    return game::id_at(id) != nullptr;
+  }
+
+  bool is_valid_id(std::string s)
+  {
+    if(s.empty()) return false;
+    if(is_integer(s) && s[0] != '-')
+    {
+      size_t a;
+      try
+      {
+        a = std::stoull(s);
+      }
+      catch (...)
+      {
+        return false;
+      }
+      return game::id_at(a) != nullptr;
+    }
+    return false;
+  }
+
+  bool is_alive_id(int id)
+  {
+    if (!is_valid_id(id)) return false;
+    return game::id_at(id)->is_alive();
+  }
+
+  bool is_alive_id(std::string s)
+  {
+    if (!is_valid_id(s)) return false;
+    return game::id_at(std::stoull(s))->is_alive();
+  }
+
+  bool is_integer(const std::string& r)
+  {
+    if(r[0] != '+' && r[0] != '-' && !std::isdigit(r[0]))
+      return false;
+
+    for(size_t i = 1; i < r.size(); ++i)
+    {
+      if(!std::isdigit(r[i]))
+        return false;
+    }
+    return true;
+  }
+
   void tank_assert(bool b, const std::string &detail_)
   {
     if (!b)
