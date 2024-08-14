@@ -15,7 +15,6 @@
 #define TANK_INFO_H
 #pragma once
 
-#include <functional>
 #include <string>
 
 namespace czh::info
@@ -26,10 +25,12 @@ namespace czh::info
     int lethality;
     int range;
   };
+
   enum class TankType
   {
     AUTO, NORMAL
   };
+
   struct TankInfo
   {
     int max_hp;
@@ -39,6 +40,5 @@ namespace czh::info
     TankType type;
     BulletInfo bullet;
   };
-  
 }
 #endif

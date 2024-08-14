@@ -151,7 +151,7 @@ namespace czh::cmd
     std::string name;
     std::vector<details::Arg> args;
 
-    bool is(const std::string &n) const
+    [[nodiscard]] bool is(const std::string &n) const
     {
       return name == n;
     }

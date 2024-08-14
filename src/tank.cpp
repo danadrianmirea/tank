@@ -25,9 +25,9 @@
 
 namespace czh::tank
 {
-  Tank::Tank(info::TankInfo info_, map::Pos pos_)
-    : info(info_), direction(map::Direction::UP),
-      pos(pos_), hp(info_.max_hp), hascleared(false)
+  Tank::Tank(const info::TankInfo& info_, map::Pos pos_)
+    : info(info_), hp(info_.max_hp), pos(pos_), direction(map::Direction::UP),
+      hascleared(false)
   {
     g::game_map.add_tank(this, pos);
   }
@@ -99,25 +99,25 @@ namespace czh::tank
     return info.id;
   }
 
-  std::string &Tank::get_name()
+  std::string& Tank::get_name()
   {
     return info.name;
   }
 
-  const std::string &Tank::get_name() const
+  const std::string& Tank::get_name() const
   {
     return info.name;
   }
 
   [[nodiscard]] int Tank::get_hp() const { return hp; }
 
-  [[nodiscard]] int &Tank::get_hp() { return hp; }
+  [[nodiscard]] int& Tank::get_hp() { return hp; }
 
   [[nodiscard]] int Tank::get_max_hp() const { return info.max_hp; }
 
-  [[nodiscard]] const info::TankInfo &Tank::get_info() const { return info; }
+  [[nodiscard]] const info::TankInfo& Tank::get_info() const { return info; }
 
-  [[nodiscard]] info::TankInfo &Tank::get_info() { return info; }
+  [[nodiscard]] info::TankInfo& Tank::get_info() { return info; }
 
   [[nodiscard]] bool Tank::is_alive() const
   {
@@ -135,7 +135,7 @@ namespace czh::tank
     hascleared = true;
   }
 
-  map::Pos &Tank::get_pos()
+  map::Pos& Tank::get_pos()
   {
     return pos;
   }
@@ -147,17 +147,17 @@ namespace czh::tank
     if (hp > info.max_hp) hp = info.max_hp;
   }
 
-  [[nodiscard]] const map::Pos &Tank::get_pos() const
+  [[nodiscard]] const map::Pos& Tank::get_pos() const
   {
     return pos;
   }
 
-  [[nodiscard]] map::Direction &Tank::get_direction()
+  [[nodiscard]] map::Direction& Tank::get_direction()
   {
     return direction;
   }
 
-  [[nodiscard]] const map::Direction &Tank::get_direction() const
+  [[nodiscard]] const map::Direction& Tank::get_direction() const
   {
     return direction;
   }
@@ -167,7 +167,7 @@ namespace czh::tank
     return info.type;
   }
 
-  void Tank::revive(const map::Pos &newpos)
+  void Tank::revive(const map::Pos& newpos)
   {
     hp = info.max_hp;
     if (is_alive() && !hascleared) return;
@@ -176,10 +176,10 @@ namespace czh::tank
     g::game_map.add_tank(this, pos);
   }
 
-  AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to)
+  AutoTankEvent get_pos_direction(const map::Pos& from, const map::Pos& to)
   {
-    int x = (int) from.x - (int) to.x;
-    int y = (int) from.y - (int) to.y;
+    int x = from.x - to.x;
+    int y = from.y - to.y;
     if (x > 0)
     {
       return AutoTankEvent::LEFT;
@@ -195,22 +195,22 @@ namespace czh::tank
     return AutoTankEvent::UP;
   }
 
-  [[nodiscard]] int Node::get_F(const map::Pos &dest) const
+  [[nodiscard]] int Node::get_F(const map::Pos& dest) const
   {
-    return G + (int) map::get_distance(dest, pos) * 10;
+    return G + static_cast<int>(get_distance(dest, pos)) * 10;
   }
 
-  int &Node::get_G()
+  int& Node::get_G()
   {
     return G;
   }
 
-  map::Pos &Node::get_last()
+  map::Pos& Node::get_last()
   {
     return last;
   }
 
-  [[nodiscard]] const map::Pos &Node::get_pos() const
+  [[nodiscard]] const map::Pos& Node::get_pos() const
   {
     return pos;
   }
@@ -231,34 +231,34 @@ namespace czh::tank
     map::Pos pos_right(pos.x + 1, pos.y);
     if (check(pos_up))
     {
-      ret.emplace_back(Node(pos_up, G + 10, pos));
+      ret.emplace_back(pos_up, G + 10, pos);
     }
     if (check(pos_down))
     {
-      ret.emplace_back(Node(pos_down, G + 10, pos));
+      ret.emplace_back(pos_down, G + 10, pos);
     }
     if (check(pos_left))
     {
-      ret.emplace_back(Node(pos_left, G + 10, pos));
+      ret.emplace_back(pos_left, G + 10, pos);
     }
     if (check(pos_right))
     {
-      ret.emplace_back(Node(pos_right, G + 10, pos));
+      ret.emplace_back(pos_right, G + 10, pos);
     }
     return ret;
   }
 
-  bool Node::check(map::Pos &pos) const
+  bool Node::check(const map::Pos& pos)
   {
     return !g::game_map.has(map::Status::WALL, pos) && !g::game_map.has(map::Status::TANK, pos);
   }
 
-  bool operator<(const Node &n1, const Node &n2)
+  bool operator<(const Node& n1, const Node& n2)
   {
     return n1.get_pos() < n2.get_pos();
   }
 
-  bool is_in_firing_line(int range, const map::Pos &pos, const map::Pos &target_pos)
+  bool is_in_firing_line(int range, const map::Pos& pos, const map::Pos& target_pos)
   {
     int x = target_pos.x - pos.x;
     int y = target_pos.y - pos.y;
@@ -297,7 +297,7 @@ namespace czh::tank
     return true;
   }
 
-  void AutoTank::target(std::size_t target_id_, const map::Pos &target_pos_)
+  void AutoTank::target(std::size_t target_id_, const map::Pos& target_pos_)
   {
     if (map::get_distance(target_pos_, pos) > 30)
     {
@@ -328,7 +328,7 @@ namespace czh::tank
 
     if (fire_line.empty()) return;
     destination_pos = *std::min_element(fire_line.begin(), fire_line.end(),
-                                        [this](auto &&a, auto &&b)
+                                        [this](auto&& a, auto&& b)
                                         {
                                           return map::get_distance(a, pos) < map::get_distance(b, pos);
                                         });
@@ -336,19 +336,18 @@ namespace czh::tank
 
     Node beg(get_pos(), 0, {0, 0}, true);
     open_list.insert({beg.get_F(destination_pos), beg});
-    int i = 0;
     while (!open_list.empty())
     {
       auto it = open_list.begin();
       auto curr = close_list.insert({it->second.get_pos(), it->second});
       open_list.erase(it);
       auto neighbors = curr.first->second.get_neighbors();
-      for (auto &node: neighbors)
+      for (auto& node : neighbors)
       {
         auto cit = close_list.find(node.get_pos());
         if (cit != close_list.end()) continue;
         auto oit = std::find_if(open_list.begin(), open_list.end(),
-                                [&node](auto &&p)
+                                [&node](auto&& p)
                                 {
                                   return p.second.get_pos() == node.get_pos();
                                 });
@@ -370,15 +369,15 @@ namespace czh::tank
         }
       }
       auto itt = std::find_if(open_list.begin(), open_list.end(),
-                              [&fire_line](auto &&p) -> bool
+                              [&fire_line](auto&& p) -> bool
                               {
-                                return fire_line.find(p.second.get_pos()) != fire_line.end();
+                                return fire_line.contains(p.second.get_pos());
                               });
       if (itt != open_list.end()) //found
       {
         route.clear();
         route_pos = 0;
-        auto &np = itt->second;
+        auto& np = itt->second;
         while (!np.is_root() && np.get_pos() != np.get_last())
         {
           route.insert(route.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
@@ -387,7 +386,6 @@ namespace czh::tank
         return;
       }
     }
-    return;
   }
 
   void AutoTank::generate_random_route()
@@ -534,7 +532,7 @@ namespace czh::tank
     }
   }
 
-  Tank *build_tank(const TankData &data)
+  Tank* build_tank(const TankData& data)
   {
     if (data.is_auto())
     {
@@ -543,7 +541,7 @@ namespace czh::tank
       ret->direction = data.direction;
       ret->hascleared = data.hascleared;
 
-      auto &d = std::get<AutoTankData>(data.data);
+      auto& d = std::get<AutoTankData>(data.data);
       ret->target_id = d.target_id;
       ret->target_pos = d.target_pos;
       ret->destination_pos = d.destination_pos;
@@ -566,7 +564,7 @@ namespace czh::tank
     return nullptr;
   }
 
-  TankData get_tank_data(Tank *t)
+  TankData get_tank_data(const Tank* t)
   {
     TankData ret;
     ret.info = t->info;
@@ -576,7 +574,7 @@ namespace czh::tank
     ret.hascleared = t->hascleared;
     if (t->is_auto())
     {
-      auto tank = dynamic_cast<tank::AutoTank *>(t);
+      auto tank = dynamic_cast<const AutoTank*>(t);
       AutoTankData data;
 
       data.target_id = tank->target_id;

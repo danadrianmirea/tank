@@ -15,7 +15,6 @@
 #define TANK_MESSAGE_H
 #pragma once
 
-#include <vector>
 #include <string>
 #include <chrono>
 

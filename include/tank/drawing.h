@@ -16,10 +16,9 @@
 #pragma once
 
 #include "game_map.h"
-#include "game.h"
-#include "utils.h"
 
 #include <string>
+#include <set>
 
 namespace czh::drawing
 {
@@ -31,68 +30,68 @@ namespace czh::drawing
     int wall;
     std::vector<int> tanks;
   };
-  
-  std::string colorify_text(size_t id, const std::string &str);
-  
-  std::string colorify_tank(size_t id, const std::string &str);
-  
+
+  std::string colorify_text(size_t id, const std::string& str);
+
+  std::string colorify_tank(size_t id, const std::string& str);
+
   struct PointView
   {
     map::Status status;
     int tank_id;
     std::string text;
-    
+
     [[nodiscard]] bool is_empty() const;
   };
-  
-  bool operator<(const PointView &c1, const PointView &c2);
-  
+
+  bool operator<(const PointView& c1, const PointView& c2);
+
   struct MapView
   {
     std::map<map::Pos, PointView> view;
     size_t seed;
-    
-    [[nodiscard]] const PointView &at(const map::Pos &i) const;
-    
-    [[nodiscard]] const PointView &at(int x, int y) const;
-    
+
+    [[nodiscard]] const PointView& at(const map::Pos& i) const;
+
+    [[nodiscard]] const PointView& at(int x, int y) const;
+
     [[nodiscard]] bool is_empty() const;
   };
-  
+
   struct TankView
   {
-    info::TankInfo info;
-    int hp;
+    info::TankInfo info{};
+    int hp{0};
     map::Pos pos;
-    map::Direction direction;
-    bool is_auto;
-    bool is_alive;
+    map::Direction direction{map::Direction::END};
+    bool is_auto{false};
+    bool is_alive{false};
   };
-  
+
   struct Snapshot
   {
     MapView map;
     std::map<size_t, TankView> tanks;
     std::set<map::Pos> changes;
   };
-  
+
   extern PointView empty_point_view;
   extern PointView wall_point_view;
-  
-  const PointView &generate(const map::Pos &i, size_t seed);
-  
-  const PointView &generate(int x, int y, size_t seed);
-  
-  PointView extract_point(const map::Pos &pos);
-  
-  MapView extract_map(const map::Zone &zone);
-  
+
+  const PointView& generate(const map::Pos& i, size_t seed);
+
+  const PointView& generate(int x, int y, size_t seed);
+
+  PointView extract_point(const map::Pos& pos);
+
+  MapView extract_map(const map::Zone& zone);
+
   std::map<size_t, TankView> extract_tanks();
-  
+
   map::Zone get_visible_zone(size_t w, size_t h, size_t id);
-  
+
   int update_snapshot();
-  
+
   void draw();
 }
 #endif //TANK_DRAWING_H

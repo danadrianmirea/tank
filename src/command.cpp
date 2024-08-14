@@ -103,7 +103,7 @@ namespace czh::g
       [](const std::string &s)
       {
         cmd::Hints ret;
-        for (size_t i = 1; i < g::help_text.size() + 1; ++i)
+        for (size_t i = 1; i < help_text.size() + 1; ++i)
           ret.emplace_back(std::to_string(i), true);
         return ret;
       }

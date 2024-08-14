@@ -16,15 +16,8 @@
 #pragma once
 
 #include "tank.h"
-#include "message.h"
-#include <string>
-#include <map>
-#include <vector>
 #include <utility>
 #include <optional>
-#include <chrono>
-#include <deque>
-#include <list>
 
 namespace czh::game
 {

@@ -34,8 +34,8 @@ namespace czh::g
   std::chrono::milliseconds msg_ttl(2000);
   std::mutex mainloop_mtx;
   std::mutex tank_reacting_mtx;
-  std::map<std::size_t, tank::Tank *> tanks;
-  std::list<bullet::Bullet *> bullets;
+  std::map<std::size_t, tank::Tank*> tanks;
+  std::list<bullet::Bullet*> bullets;
   std::vector<std::pair<std::size_t, tank::NormalTankEvent> > normal_tank_events;
   size_t next_id = 0;
 }
@@ -62,14 +62,14 @@ namespace czh::game
     return p[utils::randnum<size_t>(0, p.size())];
   }
 
-  tank::Tank *id_at(size_t id)
+  tank::Tank* id_at(size_t id)
   {
     auto it = g::tanks.find(id);
     if (it == g::tanks.end()) return nullptr;
     return it->second;
   }
 
-  std::size_t add_tank(const map::Pos &pos)
+  std::size_t add_tank(const map::Pos& pos)
   {
     g::tanks.insert({
       g::next_id, new tank::NormalTank(info::TankInfo{
@@ -96,7 +96,7 @@ namespace czh::game
     return add_tank(*pos);
   }
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos)
   {
     g::tanks.insert({
       g::next_id,
@@ -207,12 +207,12 @@ namespace czh::game
       utils::tank_assert(it->second != nullptr);
       if (it->second->is_alive())
       {
-        if(it->second->is_auto())
-          dynamic_cast<tank::AutoTank *>(it->second)->react();
+        if (it->second->is_auto())
+          dynamic_cast<tank::AutoTank*>(it->second)->react();
         else
         {
-          auto n = dynamic_cast<tank::NormalTank *>(it->second);
-          if(n->is_auto_driving())
+          auto n = dynamic_cast<tank::NormalTank*>(it->second);
+          if (n->is_auto_driving())
           {
             g::normal_tank_events.emplace_back(it->first, n->get_auto_event());
           }
@@ -221,44 +221,44 @@ namespace czh::game
     }
 
     //normal tank
-    for (auto &r: g::normal_tank_events)
+    for (auto& r : g::normal_tank_events)
     {
-      auto tank = dynamic_cast<tank::NormalTank *>(id_at(r.first));
+      auto tank = dynamic_cast<tank::NormalTank*>(id_at(r.first));
       switch (r.second)
       {
         case tank::NormalTankEvent::UP:
           tank->up();
-        break;
+          break;
         case tank::NormalTankEvent::DOWN:
           tank->down();
-        break;
+          break;
         case tank::NormalTankEvent::LEFT:
           tank->left();
-        break;
+          break;
         case tank::NormalTankEvent::RIGHT:
           tank->right();
-        break;
+          break;
         case tank::NormalTankEvent::FIRE:
           tank->fire();
-        break;
+          break;
         case tank::NormalTankEvent::UP_AUTO:
           tank->start_auto_drive(tank::NormalTankEvent::UP);
-        break;
+          break;
         case tank::NormalTankEvent::DOWN_AUTO:
           tank->start_auto_drive(tank::NormalTankEvent::DOWN);
-        break;
+          break;
         case tank::NormalTankEvent::LEFT_AUTO:
           tank->start_auto_drive(tank::NormalTankEvent::LEFT);
-        break;
+          break;
         case tank::NormalTankEvent::RIGHT_AUTO:
           tank->start_auto_drive(tank::NormalTankEvent::RIGHT);
-        break;
+          break;
         case tank::NormalTankEvent::FIRE_AUTO:
           tank->start_auto_drive(tank::NormalTankEvent::FIRE);
-        break;
+          break;
         case tank::NormalTankEvent::AUTO_OFF:
           tank->stop_auto_drive();
-        break;
+          break;
       }
     }
     g::normal_tank_events.clear();
@@ -301,7 +301,7 @@ namespace czh::game
             utils::tank_assert(tank_attacker != nullptr);
             if (tank->is_auto())
             {
-              auto t = dynamic_cast<tank::AutoTank *>(tank);
+              auto t = dynamic_cast<tank::AutoTank*>(tank);
               if (attacker != t->get_id()
                   && map::get_distance(tank_attacker->get_pos(), tank->get_pos()) < 30)
               {

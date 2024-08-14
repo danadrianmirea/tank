@@ -15,16 +15,11 @@
 #define TANK_GAME_MAP_H
 #pragma once
 
-#include "info.h"
 #include <vector>
 #include <list>
-#include <set>
 #include <algorithm>
-#include <variant>
 #include <random>
 #include <map>
-#include <optional>
-#include <variant>
 
 namespace czh::tank
 {
@@ -88,9 +83,10 @@ namespace czh::map
     tank::Tank *tank;
     std::vector<bullet::Bullet *> bullets;
   public:
-    Point() : generated(false), temporary(true) {}
+    Point() : generated(false), temporary(true), tank(nullptr) {}
     
-    Point(const std::string &, std::vector<Status> s) : generated(true), statuses(std::move(s)), temporary(true) {}
+    Point(const std::string &, std::vector<Status> s) : generated(true), temporary(true),
+    statuses(std::move(s)), tank(nullptr) {}
     
     [[nodiscard]] bool is_generated() const;
     

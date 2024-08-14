@@ -16,9 +16,6 @@
 #pragma once
 
 #include "tank.h"
-#include "game_map.h"
-#include "drawing.h"
-#include "utils.h"
 
 #ifdef _WIN32
 
@@ -29,15 +26,10 @@
 #else
 
 #include <unistd.h>
-#include <sys/types.h>
-#include <netinet/tcp.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
 #endif
 
-#include <cstring>
 #include <functional>
 #include <string>
 #include <vector>
@@ -49,7 +41,7 @@
 #include <future>
 #include <memory>
 #include <exception>
-#include <type_traits>
+#include <optional>
 
 namespace czh::online
 {
@@ -160,8 +152,8 @@ namespace czh::online
     Addr addr;
     std::string content;
   public:
-    Req(Addr addr_, std::string content_);
-    
+    Req(const Addr& addr_, std::string content_);
+
     [[nodiscard]] const Addr &get_addr() const;
     
     [[nodiscard]] const auto &get_content() const;
@@ -209,15 +201,15 @@ namespace czh::online
     
     ~TCPClient();
     
-    int connect(const std::string &addr, int port);
+    int connect(const std::string &addr, int port) const;
     
-    int disconnect();
+    int disconnect() const;
     
-    std::optional<std::string> send_and_recv(const std::string &str);
+    std::optional<std::string> send_and_recv(const std::string &str) const;
     
-    int send(const std::string &str);
+    int send(const std::string &str) const;
     
-    std::optional<std::string> recv();
+    std::optional<std::string> recv() const;
     
     void reset();
   };
@@ -234,7 +226,7 @@ namespace czh::online
     
     void init();
     
-    void start(int port);
+    void start(int port) const;
     
     void stop();
   };
@@ -243,8 +235,8 @@ namespace czh::online
   {
   private:
     std::string host;
-    int port;
-    TCPClient *cli;
+    int port{0};
+    TCPClient *cli{nullptr};
     //UDPSocket* udp;
   public:
     TankClient() = default;
@@ -257,13 +249,13 @@ namespace czh::online
     
     void disconnect();
     
-    int tank_react(tank::NormalTankEvent e);
+    int tank_react(tank::NormalTankEvent e) const;
     
     int update();
     
-    int add_auto_tank(size_t l);
+    int add_auto_tank(size_t l) const;
     
-    int run_command(const std::string &str);
+    int run_command(const std::string &str) const;
   };
 }
 #endif

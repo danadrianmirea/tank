@@ -153,7 +153,7 @@ namespace czh::map
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to)
   {
-    return std::abs(int(from.x - to.x)) + std::abs(int(from.y - to.y));
+    return std::abs(from.x - to.x) + std::abs(from.y - to.y);
   }
   
   Map::Map() = default;
@@ -283,7 +283,7 @@ namespace czh::map
   
   const Point &Map::at(const Pos &i) const
   {
-    if (map.find(i) != map.end())
+    if (map.contains(i))
     {
       return map.at(i);
     }

@@ -19,22 +19,28 @@ namespace czh::utils
 {
   bool is_ip(const std::string &s)
   {
-    std::regex ipv4("^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)($|(?!\\.$)\\.)){4}$");
+    std::regex ipv4(R"(^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)($|(?!\.$)\.)){4}$)");
     std::regex ipv6("^(?:(?:[\\da-fA-F]{1,4})($|(?!:$):)){8}$");
     return std::regex_search(s, ipv4) || std::regex_search(s, ipv6);
   }
 
-  bool is_port(int p)
+  bool is_port(const int p)
   {
     return p > 0 && p < 65536;
   }
 
-  bool is_valid_id(int id)
+  bool is_valid_id(const int id)
   {
     return game::id_at(id) != nullptr;
   }
 
-  bool is_valid_id(std::string s)
+  bool is_alive_id(const int id)
+  {
+    if (!is_valid_id(id)) return false;
+    return game::id_at(id)->is_alive();
+  }
+
+  bool is_valid_id(const std::string& s)
   {
     if(s.empty()) return false;
     if(is_integer(s) && s[0] != '-')
@@ -53,13 +59,7 @@ namespace czh::utils
     return false;
   }
 
-  bool is_alive_id(int id)
-  {
-    if (!is_valid_id(id)) return false;
-    return game::id_at(id)->is_alive();
-  }
-
-  bool is_alive_id(std::string s)
+  bool is_alive_id(const std::string& s)
   {
     if (!is_valid_id(s)) return false;
     return game::id_at(std::stoull(s))->is_alive();
@@ -98,7 +98,7 @@ namespace czh::utils
   
   std::string to_str(char a)
   {
-    return std::string(1, a);
+    return {1, a};
   }
   
   bool begin_with(const std::string &a, const std::string &b)

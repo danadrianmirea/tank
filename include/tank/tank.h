@@ -17,10 +17,6 @@
 
 #include "game_map.h"
 #include "bullet.h"
-#include <map>
-#include <set>
-#include <list>
-#include <algorithm>
 #include <utility>
 #include <variant>
 #include <functional>
@@ -69,13 +65,13 @@ namespace czh::tank
   
   Tank *build_tank(const TankData &data);
   
-  TankData get_tank_data(Tank *);
+  TankData get_tank_data(const Tank *);
   
   class Tank
   {
     friend Tank *build_tank(const TankData &data);
     
-    friend TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(const Tank *);
   
   protected:
     info::TankInfo info;
@@ -84,7 +80,7 @@ namespace czh::tank
     map::Direction direction;
     bool hascleared;
   public:
-    Tank(info::TankInfo info_, map::Pos pos_);
+    Tank(const info::TankInfo& info_, map::Pos pos_);
     
     virtual ~Tank() = default;
     
@@ -144,13 +140,13 @@ namespace czh::tank
   {
     friend Tank *build_tank(const TankData &data);
     
-    friend TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(const Tank *);
   private:
     NormalTankEvent auto_event;
     bool auto_driving;
   public:
-    NormalTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(std::move(info_), pos_) {}
+    NormalTank(const info::TankInfo& info_, map::Pos pos_)
+        : Tank(info_, pos_), auto_event(NormalTankEvent::UP), auto_driving(false) {}
     
     ~NormalTank() override = default;
 
@@ -164,12 +160,12 @@ namespace czh::tank
       auto_driving = false;
     }
 
-    NormalTankEvent get_auto_event() const
+    [[nodiscard]] NormalTankEvent get_auto_event() const
     {
       return auto_event;
     }
 
-    bool is_auto_driving() const
+    [[nodiscard]] bool is_auto_driving() const
     {
       return auto_driving;
     }
@@ -188,7 +184,7 @@ namespace czh::tank
     Node() : G(0), root(false) {}
     
     Node(map::Pos pos_, int G_, const map::Pos &last_, bool root_ = false)
-        : pos(pos_), G(G_), last(last_), root(root_) {}
+        : pos(pos_), last(last_), G(G_), root(root_) {}
     
     Node(const Node &node) = default;
     
@@ -205,7 +201,7 @@ namespace czh::tank
     [[nodiscard]] std::vector<Node> get_neighbors() const;
   
   private:
-    bool check(map::Pos &pos) const;
+    static bool check(const map::Pos &pos);
   };
   
   bool operator<(const Node &n1, const Node &n2);
@@ -216,7 +212,7 @@ namespace czh::tank
   {
     friend Tank *build_tank(const TankData &data);
     
-    friend TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(const Tank *);
   
   private:
     std::size_t target_id;
@@ -228,8 +224,8 @@ namespace czh::tank
     
     int gap_count;
   public:
-    AutoTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(std::move(info_), pos_), route_pos(0), target_id(0), gap_count(0) {}
+    AutoTank(const info::TankInfo& info_, map::Pos pos_)
+        : Tank(info_, pos_), target_id(0), route_pos(0), gap_count(0) {}
     
     ~AutoTank() override = default;
     

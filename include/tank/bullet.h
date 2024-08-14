@@ -23,48 +23,51 @@ namespace czh::bullet
   struct BulletData
   {
     map::Pos pos;
-    map::Direction direction;
-    int from_tank_id;
-    info::BulletInfo info;
+    map::Direction direction{map::Direction::END};
+    std::size_t from_tank_id{0};
+    info::BulletInfo info{};
   };
-  
+
   class Bullet;
-  
-  Bullet *build_bullet(const BulletData &data);
-  
-  BulletData get_bullet_data(Bullet *);
-  
-  
+
+  Bullet* build_bullet(const BulletData& data);
+
+  BulletData get_bullet_data(const Bullet*);
+
+
   class Bullet
   {
-    friend Bullet *build_bullet(const BulletData &data);
-    
-    friend BulletData get_bullet_data(Bullet *);
-  
+    friend Bullet* build_bullet(const BulletData& data);
+
+    friend BulletData get_bullet_data(const Bullet*);
+
   private:
     map::Pos pos;
     map::Direction direction;
-    int from_tank_id;
+    std::size_t from_tank_id;
     info::BulletInfo info;
+
   public:
-    Bullet(info::BulletInfo info_, int from_tank_id_,
+    Bullet(info::BulletInfo info_, std::size_t from_tank_id_,
            map::Pos pos_, map::Direction direction_)
-        : pos(pos_), direction(direction_), info(info_), from_tank_id(from_tank_id_) {}
-    
+      : pos(pos_), direction(direction_), from_tank_id(from_tank_id_), info(info_)
+    {
+    }
+
     int react();
-    
+
     std::string get_text();
-    
+
     [[nodiscard]] bool is_alive() const;
-    
-    [[nodiscard]] int get_tank() const;
-    
+
+    [[nodiscard]] std::size_t get_tank() const;
+
     void kill();
-    
-    [[nodiscard]]const map::Pos &get_pos() const;
-    
-    map::Pos &get_pos();
-    
+
+    [[nodiscard]] const map::Pos& get_pos() const;
+
+    map::Pos& get_pos();
+
     [[nodiscard]] int get_lethality() const;
   };
 }

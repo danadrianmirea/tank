@@ -19,17 +19,17 @@
 
 namespace czh::msg
 {
-  bool operator<(const Message &m1, const Message &m2)
+  bool operator<(const Message& m1, const Message& m2)
   {
     return m1.priority < m2.priority;
   }
-  
-  int send_message(int from, int to, const std::string &msg_content, int priority)
+
+  int send_message(int from, int to, const std::string& msg_content, int priority)
   {
     Message msg{.from = from, .content = msg_content, .priority = priority};
     if (to == -1)
     {
-      for (auto &r: g::userdata)
+      for (auto& r : g::userdata)
       {
         r.second.messages.push(msg);
       }
@@ -45,58 +45,58 @@ namespace czh::msg
     }
     return 0;
   }
-  
-  void log_helper(int id, const std::string &s, const std::string &content, int priority)
+
+  void log_helper(int id, const std::string& s, const std::string& content, int priority)
   {
     send_message(-1, id, s + content, priority);
   }
 
-  void trace(int id, const std::string &c)
+  void trace(int id, const std::string& c)
   {
     log_helper(id, "[TRACE] ", c, -20);
   }
 
-  void info(int id, const std::string &c)
+  void info(int id, const std::string& c)
   {
     log_helper(id, "[INFO] ", c, -10);
   }
-  
-  void warn(int id, const std::string &c)
+
+  void warn(int id, const std::string& c)
   {
     log_helper(id, utils::color_256_fg("[WARNING] ", 11), c, 10);
   }
-  
-  void error(int id, const std::string &c)
+
+  void error(int id, const std::string& c)
   {
     log_helper(id, utils::color_256_fg("[ERROR] ", 9), c, 20);
   }
-  
-  void critical(int id, const std::string &c)
+
+  void critical(int id, const std::string& c)
   {
     log_helper(id, utils::color_256_fg("[CRITICAL] ", 9), c, 30);
   }
 
-  void trace(size_t id, const std::string &c)
+  void trace(size_t id, const std::string& c)
   {
     log_helper(static_cast<int>(id), "[TRACE] ", c, -20);
   }
-  
-  void info(size_t id, const std::string &c)
+
+  void info(size_t id, const std::string& c)
   {
     log_helper(static_cast<int>(id), "[INFO] ", c, -10);
   }
-  
-  void warn(size_t id, const std::string &c)
+
+  void warn(size_t id, const std::string& c)
   {
     log_helper(static_cast<int>(id), utils::color_256_fg("[WARNING] ", 11), c, 10);
   }
-  
-  void error(size_t id, const std::string &c)
+
+  void error(size_t id, const std::string& c)
   {
     log_helper(static_cast<int>(id), utils::color_256_fg("[ERROR] ", 9), c, 20);
   }
-  
-  void critical(size_t id, const std::string &c)
+
+  void critical(size_t id, const std::string& c)
   {
     log_helper(static_cast<int>(id), utils::color_256_fg("[CRITICAL] ", 9), c, 30);
   }

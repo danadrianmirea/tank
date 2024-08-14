@@ -12,7 +12,13 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/term.h"
-#include <string>
+
+#include <cstdio>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <termios.h>
+
 #include <iostream>
 
 namespace czh::g
@@ -23,6 +29,7 @@ namespace czh::g
 namespace czh::term
 {
   KeyBoard::KeyBoard()
+    : keyboard_mode(0), initial_settings(), new_settings(), peek_character(0)
   {
     init();
   }
@@ -58,7 +65,7 @@ namespace czh::term
     deinit();
   }
   
-  void KeyBoard::deinit()
+  void KeyBoard::deinit() const
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
     HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -77,11 +84,10 @@ namespace czh::term
     return _kbhit();
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     unsigned char ch;
-    int nread;
     if (peek_character != -1) return 1;
     new_settings.c_cc[VMIN] = 0;
     tcsetattr(0, TCSANOW, &new_settings);
-    nread = read(0, &ch, 1);
+    int nread = static_cast<int>(read(0, &ch, 1));
     new_settings.c_cc[VMIN] = 1;
     tcsetattr(0, TCSANOW, &new_settings);
     
@@ -102,7 +108,7 @@ namespace czh::term
     char ch;
     if (peek_character != -1)
     {
-      ch = peek_character;
+      ch = static_cast<char>(peek_character);
       peek_character = -1;
     }
     else { read(0, &ch, 1); }
@@ -128,7 +134,7 @@ namespace czh::term
     GetConsoleScreenBufferInfo(handle, &csbi);
     return csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
-    struct winsize w;
+    winsize w{};
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     return w.ws_row;
 #endif
@@ -142,7 +148,7 @@ namespace czh::term
     GetConsoleScreenBufferInfo(handle, &csbi);
     return csbi.srWindow.Right - csbi.srWindow.Left + 1;
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
-    struct winsize w;
+    winsize w{};
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
     return w.ws_col;
 #endif

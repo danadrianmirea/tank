@@ -14,6 +14,7 @@
 #include "tank/input.h"
 #include "tank/globals.h"
 #include "tank/game.h"
+#include "tank/utils.h"
 #include "tank/term.h"
 
 #include <string>
@@ -107,7 +108,7 @@ namespace czh::input
 
     // history hint
     auto its = utils::find_all_if(g::history.cbegin(), g::history.cend(),
-                       [&tokens](auto &&f) { return utils::begin_with(f, g::cmd_line); });
+                       [](auto &&f) { return utils::begin_with(f, g::cmd_line); });
     for(auto& it : its)
       g::hint.emplace_back(it->substr(g::cmd_line.size()), true);
   }
@@ -603,7 +604,7 @@ namespace czh::input
         }
         else
         {
-          g::cmd_line.insert(g::cmd_pos++, 1, buf);
+          g::cmd_line.insert(g::cmd_pos++, 1, static_cast<char>(buf));
           get_hint();
           edit_refresh_line();
         }

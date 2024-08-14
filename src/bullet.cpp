@@ -102,7 +102,7 @@ namespace czh::bullet
     return info.hp > 0 && info.range > 0;
   }
   
-  [[nodiscard]] int Bullet::get_tank() const
+  [[nodiscard]] std::size_t Bullet::get_tank() const
   {
     return from_tank_id;
   }
@@ -133,7 +133,7 @@ namespace czh::bullet
     return ret;
   }
   
-  BulletData get_bullet_data(Bullet *b)
+  BulletData get_bullet_data(const Bullet * b)
   {
     return BulletData
         {

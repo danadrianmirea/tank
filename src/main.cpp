@@ -59,11 +59,9 @@ int main()
   std::thread game_thread(
       []
       {
-        std::chrono::steady_clock::time_point beg, end;
-        std::chrono::milliseconds cost;
         while (true)
         {
-          beg = std::chrono::steady_clock::now();
+          std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
           if (g::game_mode == game::GameMode::NATIVE)
           {
             game::mainloop();
@@ -109,8 +107,8 @@ int main()
           auto ret = drawing::update_snapshot();
           if (ret == 0) drawing::draw();
           
-          end = std::chrono::steady_clock::now();
-          cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+          std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+          std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)
           {
             std::this_thread::sleep_for(g::tick - cost);

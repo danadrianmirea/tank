@@ -26,10 +26,6 @@
 #elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
 #define CZH_TANK_KEYBOARD_MODE_1
 
-#include <cstdio>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <sys/select.h>
 #include <termios.h>
 
 #else
@@ -48,63 +44,66 @@ namespace czh::term
     struct termios initial_settings, new_settings;
     int peek_character;
 #endif
-    
+
     KeyBoard();
-    
+
     ~KeyBoard();
-    
+
     void init();
-    
-    void deinit();
-    
+
+    void deinit() const;
+
     int kbhit();
-    
+
     int getch();
   };
-  
+
   class TermPos
   {
   private:
     std::size_t x;
     std::size_t y;
+
   public:
     TermPos(std::size_t x_, std::size_t y_)
-        : x(x_), y(y_) {}
-    
-    [[nodiscard]]std::size_t get_x() const { return x; }
-    
-    [[nodiscard]]std::size_t get_y() const { return y; }
+      : x(x_), y(y_)
+    {
+    }
+
+    [[nodiscard]] std::size_t get_x() const { return x; }
+
+    [[nodiscard]] std::size_t get_y() const { return y; }
   };
-  
+
   int getch();
-  
+
   bool kbhit();
-  
-  void move_cursor(const TermPos &pos);
-  
+
+  void move_cursor(const TermPos& pos);
+
   void flush();
-  
-  template<typename ...Args>
-  void output(Args &&...args)
+
+  template<typename... Args>
+  void output(Args&&... args)
   {
     (std::cout << ... << args);
   }
-  
-  template<typename ...Args>
-  void mvoutput(const TermPos &pos, Args &&...args)
+
+  template<typename... Args>
+  void mvoutput(const TermPos& pos, Args&&... args)
   {
     move_cursor(pos);
     output(std::forward<Args>(args)...);
   }
-  
+
   std::size_t get_height();
-  
+
   std::size_t get_width();
-  
+
   void clear();
-  
+
   void hide_cursor();
-  
+
   void show_cursor();
 }
 #endif

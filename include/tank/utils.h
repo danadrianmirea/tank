@@ -17,7 +17,6 @@
 
 #include <string_view>
 #include <string>
-#include <stdexcept>
 #include <random>
 #include <type_traits>
 
@@ -104,90 +103,90 @@ namespace czh::utils
     return ret;
   }
 
-  void tank_assert(bool b, const std::string &detail_ = "Assertion failed.");
+  void tank_assert(bool b, const std::string& detail_ = "Assertion failed.");
 
   template<typename T>
     requires (!std::is_same_v<std::string, std::decay_t<T> >) &&
-             (!std::is_same_v<const char *, std::decay_t<T> >)
-  std::string to_str(T &&a)
+             (!std::is_same_v<const char*, std::decay_t<T> >)
+  std::string to_str(T&& a)
   {
     return std::to_string(std::forward<T>(a));
   }
 
-  std::string to_str(const std::string &a);
+  std::string to_str(const std::string& a);
 
-  std::string to_str(const char *&a);
+  std::string to_str(const char*& a);
 
   std::string to_str(char a);
 
   template<typename T, typename... Args>
-  std::string join(char, T &&arg)
+  std::string join(char, T&& arg)
   {
     return to_str(arg);
   }
 
   template<typename T, typename... Args>
-  std::string join(char delim, T &&arg, Args &&... args)
+  std::string join(char delim, T&& arg, Args&&... args)
   {
     return to_str(arg) + delim + join(delim, std::forward<Args>(args)...);
   }
 
   template<typename... Args>
-  std::string join(char delim, Args &&... args)
+  std::string join(char delim, Args&&... args)
   {
     return join(delim, std::forward<Args>(args)...);
   }
 
   template<typename T, typename... Args>
-  std::string contact(T &&arg)
+  std::string contact(T&& arg)
   {
     return to_str(arg);
   }
 
   template<typename T, typename... Args>
-  std::string contact(T &&arg, Args &&... args)
+  std::string contact(T&& arg, Args&&... args)
   {
     return to_str(arg) + contact(std::forward<Args>(args)...);
   }
 
   template<typename... Args>
-  std::string contact(Args &&... args)
+  std::string contact(Args&&... args)
   {
     return contact(std::forward<Args>(args)...);
   }
 
-  bool begin_with(const std::string &a, const std::string &b);
+  bool begin_with(const std::string& a, const std::string& b);
 
-  bool is_ip(const std::string &s);
+  bool is_ip(const std::string& s);
 
-  bool is_port(int p);
+  bool is_port(const int p);
 
-  bool is_valid_id(int id);
+  bool is_valid_id(const int id);
 
-  bool is_alive_id(int id);
+  bool is_alive_id(const int id);
 
-  bool is_valid_id(std::string s);
+  bool is_valid_id(const std::string& s);
 
-  bool is_alive_id(std::string s);
+  bool is_alive_id(const std::string& s);
 
-  bool is_integer(const std::string &r);
+  bool is_integer(const std::string& r);
 
 
-  size_t escape_code_len(const std::string::const_iterator &beg, const std::string::const_iterator &end);
+  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end);
 
-  size_t escape_code_len(const std::string &str);
+  size_t escape_code_len(const std::string& str);
 
   template<typename... Args>
-  size_t escape_code_len(const std::string &str, Args &&... args)
+  size_t escape_code_len(const std::string& str, Args&&... args)
   {
     return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
   }
 
   // Xterm 256 color
   // https://www.ditig.com/publications/256-colors-cheat-sheet
-  std::string color_256_fg(const std::string &str, int color);
+  std::string color_256_fg(const std::string& str, int color);
 
-  std::string color_256_bg(const std::string &str, int color);
+  std::string color_256_bg(const std::string& str, int color);
 
   //  struct RGB
   //  {

@@ -15,9 +15,6 @@
 #define TANK_INPUT_H
 #pragma once
 
-#include <string>
-#include <vector>
-
 namespace czh::input
 {
   enum class Input
@@ -28,7 +25,7 @@ namespace czh::input
     LEFT,
     RIGHT,
     KEY_SPACE,
-  // long press event
+    // long press event
     LP_UP_BEGIN,
     LP_DOWN_BEGIN,
     LP_LEFT_BEGIN,
@@ -53,7 +50,7 @@ namespace czh::input
     CTRL_D = 4,
     CTRL_E = 5,
     CTRL_F = 6,
-    
+
     CTRL_H = 8,
     TAB = 9,
     LINE_FEED = 10,
@@ -61,17 +58,17 @@ namespace czh::input
     CTRL_L = 12,
     ENTER = 13,
     CTRL_N = 14,
-    
+
     CTRL_P = 16,
-    
+
     CTRL_T = 20,
     CTRL_U = 21,
-    
+
     CTRL_W = 23,
-    
+
     CTRL_Z = 26,
     ESC = 27,
-    
+
     BACKSPACE = 127
   };
 
@@ -81,7 +78,7 @@ namespace czh::input
   };
 
   void edit_refresh_line(bool with_hint = true);
-  
+
   Input get_input();
 }
 #endif

@@ -21,7 +21,11 @@
 #include "online.h"
 #include "term.h"
 #include "input.h"
-#include <functional>
+#include "message.h"
+#include "drawing.h"
+#include "game.h"
+
+
 #include <string>
 #include <set>
 #include <atomic>
