@@ -207,12 +207,14 @@ int main()
           if (g::status_lineno != 1)
           {
             g::status_lineno--;
+            g::output_inited = false;
           }
           break;
         case input::Input::DOWN:
           if (g::status_lineno < g::snapshot.tanks.size())
           {
             g::status_lineno++;
+            g::output_inited = false;
           }
           break;
         case input::Input::KEY_O:
