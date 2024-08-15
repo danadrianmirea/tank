@@ -51,7 +51,7 @@ namespace czh::online
 #ifdef _WIN32
   extern WSADATA wsa_data;
 #endif
-  
+
   class Thpool
   {
   private:
@@ -62,23 +62,24 @@ namespace czh::online
     std::mutex th_mutex;
     std::exception_ptr err_ptr;
     std::condition_variable cond;
+
   public:
     explicit Thpool(std::size_t size);
-    
+
     ~Thpool();
-    
-    void add_task(const std::function<void()> &func);
-    
+
+    void add_task(const std::function<void()>& func);
+
     void add_thread(std::size_t num);
   };
-  
+
   struct MsgHeader
   {
     uint32_t magic;
     uint16_t version;
     uint32_t content_length;
   };
-  
+
   struct Addr
   {
     struct sockaddr_in addr;
@@ -87,19 +88,19 @@ namespace czh::online
 #else
     socklen_t len;
 #endif
-    
+
     Addr();
-    
+
     Addr(struct sockaddr_in addr_, decltype(len) len_);
-    
-    Addr(const std::string &ip, int port);
-    
+
+    Addr(const std::string& ip, int port);
+
     explicit Addr(int port);
-    
+
     [[nodiscard]] std::string to_string() const;
-    
+
     [[nodiscard]] int port() const;
-    
+
     [[nodiscard]] std::string ip() const;
   };
 
@@ -109,155 +110,160 @@ namespace czh::online
 #else
   using Socket_t = int;
 #endif
-  
+
   class TCPSocket
   {
   private:
     Socket_t fd;
+
   public:
     TCPSocket();
-    
+
     explicit TCPSocket(Socket_t fd_);
-    
-    TCPSocket(const TCPSocket &) = delete;
-    
-    TCPSocket(TCPSocket &&soc) noexcept;
-    
+
+    TCPSocket(const TCPSocket&) = delete;
+
+    TCPSocket(TCPSocket&& soc) noexcept;
+
     ~TCPSocket();
-    
+
     [[nodiscard]] std::tuple<TCPSocket, Addr> accept() const;
-    
+
     [[nodiscard]] Socket_t get_fd() const;
-    
+
     Socket_t release();
-    
-    [[nodiscard]] int send(const std::string &str) const;
-    
+
+    [[nodiscard]] int send(const std::string& str) const;
+
     [[nodiscard]] std::optional<std::string> recv() const;
-    
+
     [[nodiscard]] int bind(Addr addr) const;
-    
+
     [[nodiscard]] int listen() const;
-    
+
     [[nodiscard]] int connect(Addr addr) const;
-    
+
     [[nodiscard]] std::optional<Addr> get_peer_addr() const;
-    
+
     void reset();
-    
+
     void init();
   };
-  
+
   class Req
   {
   private:
     Addr addr;
     std::string content;
+
   public:
     Req(const Addr& addr_, std::string content_);
 
-    [[nodiscard]] const Addr &get_addr() const;
-    
-    [[nodiscard]] const auto &get_content() const;
+    [[nodiscard]] const Addr& get_addr() const;
+
+    [[nodiscard]] const auto& get_content() const;
   };
-  
+
   class Res
   {
   private:
     std::string content;
+
   public:
     Res() = default;
-    
-    void set_content(const std::string &c);
-    
-    [[nodiscard]] const auto &get_content() const;
+
+    void set_content(const std::string& c);
+
+    [[nodiscard]] const auto& get_content() const;
   };
-  
+
   class TCPServer
   {
   private:
     bool running;
-    std::function<void(const Req &, Res &)> router;
+    std::function<void(const Req&, Res&)> router;
     std::vector<Socket_t> sockets;
     Thpool thpool;
+
   public:
     TCPServer();
-    
+
     ~TCPServer();
-    
-    explicit TCPServer(std::function<void(const Req &, Res &)> router_);
-    
-    void init(const std::function<void(const Req &, Res &)> &router_);
-    
+
+    explicit TCPServer(std::function<void(const Req&, Res&)> router_);
+
+    void init(const std::function<void(const Req&, Res&)>& router_);
+
     void start(int port);
-    
+
     void stop();
   };
-  
+
   class TCPClient
   {
   private:
     TCPSocket socket;
+
   public:
     TCPClient() = default;
-    
+
     ~TCPClient();
-    
-    int connect(const std::string &addr, int port) const;
-    
+
+    int connect(const std::string& addr, int port) const;
+
     int disconnect() const;
-    
-    std::optional<std::string> send_and_recv(const std::string &str) const;
-    
-    int send(const std::string &str) const;
-    
+
+    std::optional<std::string> send_and_recv(const std::string& str) const;
+
+    int send(const std::string& str) const;
+
     std::optional<std::string> recv() const;
-    
+
     void reset();
   };
-  
+
   class TankServer
   {
   private:
-    TCPServer *svr;
+    TCPServer* svr;
     //UDPSocket* udp;
   public:
     TankServer() = default;
-    
+
     ~TankServer();
-    
+
     void init();
-    
+
     void start(int port) const;
-    
+
     void stop();
   };
-  
+
   class TankClient
   {
   private:
     std::string host;
     int port{0};
-    TCPClient *cli{nullptr};
+    TCPClient* cli{nullptr};
     //UDPSocket* udp;
   public:
     TankClient() = default;
-    
+
     ~TankClient();
-    
+
     void init();
-    
-    std::optional<size_t> connect(const std::string &addr_, int port_);
-    
+
+    std::optional<size_t> connect(const std::string& addr_, int port_);
+
     void disconnect();
-    
+
     int tank_react(tank::NormalTankEvent e) const;
-    
+
     int update() const;
-    
+
     int add_auto_tank(size_t l) const;
-    
-    int run_command(const std::string &str) const;
+
+    int run_command(const std::string& str) const;
   };
 }
 #endif

@@ -57,67 +57,73 @@ int main()
   signal(SIGCONT, sighandler);
 #endif
   std::thread game_thread(
-      []
+    []
+    {
+      while (true)
       {
-        while (true)
+        std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
+        if (g::game_mode == g::GameMode::NATIVE)
         {
-          std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-          if (g::game_mode == g::GameMode::NATIVE)
+          game::mainloop();
+        }
+        else if (g::game_mode == g::GameMode::SERVER)
+        {
+          game::mainloop();
+          std::vector<size_t> disconnected;
+          for (auto& r : g::userdata)
           {
-            game::mainloop();
-          }
-          else if (g::game_mode == g::GameMode::SERVER)
-          {
-            game::mainloop();
-            std::vector<size_t> disconnected;
-            for (auto &r: g::userdata)
+            if (r.first == 0) continue;
+            auto d = std::chrono::duration_cast<std::chrono::seconds>
+                (std::chrono::steady_clock::now() - r.second.last_update);
+            if (d.count() > 5)
             {
-              if (r.first == 0) continue;
-              auto d = std::chrono::duration_cast<std::chrono::seconds>
-                  (std::chrono::steady_clock::now() - r.second.last_update);
-              if (d.count() > 5)
-              {
-                disconnected.emplace_back(r.first);
-              }
-            }
-            for (auto &r: disconnected)
-            {
-              msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
-              g::tanks[r]->kill();
-              g::tanks[r]->clear();
-              delete g::tanks[r];
-              g::tanks.erase(r);
-              g::userdata.erase(r);
-              if(g::curr_page == g::Page::STATUS)
-                g::output_inited = false;
+              disconnected.emplace_back(r.first);
             }
           }
-          else if (g::game_mode == g::GameMode::CLIENT)
+          for (auto& r : disconnected)
           {
-            if (g::client_failed_attempts > 10)
-            {
-              g::online_client.disconnect();
-              g::game_mode = g::GameMode::NATIVE;
-              g::userdata = {{0, g::UserData{.user_id = 0,
-                .messages = g::userdata[g::user_id].messages}}};
-              g::user_id = 0;
-              g::tank_focus = 0;
+            msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
+            g::tanks[r]->kill();
+            g::tanks[r]->clear();
+            delete g::tanks[r];
+            g::tanks.erase(r);
+            g::userdata.erase(r);
+            if (g::curr_page == g::Page::STATUS)
               g::output_inited = false;
-              g::client_failed_attempts = 0;
-              msg::critical(g::user_id, "Disconnected due to network issues.");
-            }
-          }
-          auto ret = drawing::update_snapshot();
-          if (ret == 0) drawing::draw();
-          
-          std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-          std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
-          if (g::tick > cost)
-          {
-            std::this_thread::sleep_for(g::tick - cost);
           }
         }
+        else if (g::game_mode == g::GameMode::CLIENT)
+        {
+          if (g::client_failed_attempts > 10)
+          {
+            g::online_client.disconnect();
+            g::game_mode = g::GameMode::NATIVE;
+            g::userdata = {
+              {
+                0, g::UserData{
+                  .user_id = 0,
+                  .messages = g::userdata[g::user_id].messages
+                }
+              }
+            };
+            g::user_id = 0;
+            g::tank_focus = 0;
+            g::output_inited = false;
+            g::client_failed_attempts = 0;
+            msg::critical(g::user_id, "Disconnected due to network issues.");
+          }
+        }
+        auto ret = drawing::update_snapshot();
+        if (ret == 0) drawing::draw();
+
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+        if (g::tick > cost)
+        {
+          std::this_thread::sleep_for(g::tick - cost);
+        }
       }
+    }
   );
   game::add_tank(map::Pos{0, 0});
   while (true)
@@ -144,19 +150,19 @@ int main()
           break;
         case input::Input::LP_DOWN_BEGIN:
           react(tank::NormalTankEvent::DOWN_AUTO);
-        break;
+          break;
         case input::Input::LP_LEFT_BEGIN:
           react(tank::NormalTankEvent::LEFT_AUTO);
-        break;
+          break;
         case input::Input::LP_RIGHT_BEGIN:
           react(tank::NormalTankEvent::RIGHT_AUTO);
-        break;
+          break;
         case input::Input::LP_KEY_SPACE_BEGIN:
           react(tank::NormalTankEvent::FIRE_AUTO);
-        break;
+          break;
         case input::Input::LP_END:
           react(tank::NormalTankEvent::AUTO_OFF);
-        break;
+          break;
         case input::Input::KEY_SPACE:
           react(tank::NormalTankEvent::FIRE);
           break;
@@ -176,7 +182,8 @@ int main()
             game::add_auto_tank(utils::randnum<int>(1, 11));
           }
         }
-          break;
+        break;
+        default: break;
       }
     }
     else if (g::curr_page == g::Page::HELP)
@@ -197,6 +204,7 @@ int main()
             g::output_inited = false;
           }
           break;
+        default: break;
       }
     }
     else if (g::curr_page == g::Page::STATUS)
@@ -221,6 +229,7 @@ int main()
           g::curr_page = g::Page::GAME;
           g::output_inited = false;
           break;
+        default: break;
       }
     }
     switch (i)
@@ -250,39 +259,39 @@ int main()
         game::quit();
         std::exit(0);
       }
-        break;
+      break;
 #ifdef SIGCONT
-        case input::Input::KEY_CTRL_Z:
+      case input::Input::KEY_CTRL_Z:
+      {
+        std::lock_guard<std::mutex> l1(g::drawing_mtx);
+        std::lock_guard<std::mutex> l2(g::mainloop_mtx);
+        if (g::game_mode == g::GameMode::CLIENT)
         {
-          std::lock_guard<std::mutex> l1(g::drawing_mtx);
-          std::lock_guard<std::mutex> l2(g::mainloop_mtx);
-          if (g::game_mode == g::GameMode::CLIENT)
-          {
-            g::online_client.disconnect();
-            g::user_id = 0;
-            g::tank_focus = g::user_id;
-            g::output_inited = false;
-            g::game_mode = g::GameMode::NATIVE;
-          }
-          else if (g::game_mode == g::GameMode::SERVER)
-          {
-            g::online_server.stop();
-            for (auto &r: g::userdata)
-            {
-              if (r.first == 0) continue;
-              g::tanks[r.first]->kill();
-              g::tanks[r.first]->clear();
-              delete g::tanks[r.first];
-              g::tanks.erase(r.first);
-            }
-            g::userdata = {{0, g::userdata[0]}};
-            g::game_mode = g::GameMode::NATIVE;
-          }
-          g::game_suspend = true;
-          g::keyboard.deinit();
-          raise(SIGSTOP);
+          g::online_client.disconnect();
+          g::user_id = 0;
+          g::tank_focus = g::user_id;
+          g::output_inited = false;
+          g::game_mode = g::GameMode::NATIVE;
         }
-          break;
+        else if (g::game_mode == g::GameMode::SERVER)
+        {
+          g::online_server.stop();
+          for (auto& r : g::userdata)
+          {
+            if (r.first == 0) continue;
+            g::tanks[r.first]->kill();
+            g::tanks[r.first]->clear();
+            delete g::tanks[r.first];
+            g::tanks.erase(r.first);
+          }
+          g::userdata = {{0, g::userdata[0]}};
+          g::game_mode = g::GameMode::NATIVE;
+        }
+        g::game_suspend = true;
+        g::keyboard.deinit();
+        raise(SIGSTOP);
+      }
+      break;
 #endif
       default:
         break;

@@ -17,7 +17,7 @@
 
 namespace czh::utils
 {
-  bool is_ip(const std::string &s)
+  bool is_ip(const std::string& s)
   {
     std::regex ipv4(R"(^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)($|(?!\.$)\.)){4}$)");
     std::regex ipv6("^(?:(?:[\\da-fA-F]{1,4})($|(?!:$):)){8}$");
@@ -42,8 +42,8 @@ namespace czh::utils
 
   bool is_valid_id(const std::string& s)
   {
-    if(s.empty()) return false;
-    if(is_integer(s) && s[0] != '-')
+    if (s.empty()) return false;
+    if (is_integer(s) && s[0] != '-')
     {
       size_t a;
       try
@@ -67,41 +67,41 @@ namespace czh::utils
 
   bool is_integer(const std::string& r)
   {
-    if(r[0] != '+' && r[0] != '-' && !std::isdigit(r[0]))
+    if (r[0] != '+' && r[0] != '-' && !std::isdigit(r[0]))
       return false;
 
-    for(size_t i = 1; i < r.size(); ++i)
+    for (size_t i = 1; i < r.size(); ++i)
     {
-      if(!std::isdigit(r[i]))
+      if (!std::isdigit(r[i]))
         return false;
     }
     return true;
   }
 
-  void tank_assert(bool b, const std::string &detail_)
+  void tank_assert(bool b, const std::string& detail_)
   {
     if (!b)
     {
       throw std::runtime_error(detail_);
     }
   }
-  
-  std::string to_str(const std::string &a)
+
+  std::string to_str(const std::string& a)
   {
     return a;
   }
-  
-  std::string to_str(const char *&a)
+
+  std::string to_str(const char*& a)
   {
     return {a};
   }
-  
+
   std::string to_str(char a)
   {
     return {1, a};
   }
-  
-  bool begin_with(const std::string &a, const std::string &b)
+
+  bool begin_with(const std::string& a, const std::string& b)
   {
     if (a.size() < b.size()) return false;
     for (size_t i = 0; i < b.size(); ++i)
@@ -113,8 +113,8 @@ namespace czh::utils
     }
     return true;
   }
-  
-  size_t escape_code_len(const std::string::const_iterator &beg, const std::string::const_iterator &end)
+
+  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end)
   {
     size_t ret = 0;
     std::string n;
@@ -130,34 +130,34 @@ namespace czh::utils
     }
     return ret;
   }
-  
-  size_t escape_code_len(const std::string &str)
+
+  size_t escape_code_len(const std::string& str)
   {
     return escape_code_len(str.cbegin(), str.cend());
   }
 
-  std::string color_256_fg(const std::string &str, int color)
+  std::string color_256_fg(const std::string& str, int color)
   {
     return "\x1b[38;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
-  
-  std::string color_256_bg(const std::string &str, int color)
+
+  std::string color_256_bg(const std::string& str, int color)
   {
     return "\x1b[48;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
 
-//  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
-//  {
-//    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"
-//           + std::to_string(rgb.g) + ";"
-//           + std::to_string(rgb.b) + "m"
-//           + str + "\x1b[0m";
-//  }
-//  std::string color_rgb_bg(const std::string &str, const RGB& rgb)
-//  {
-//    return "\x1b[48;2;" + std::to_string(rgb.r) + ";"
-//           + std::to_string(rgb.g) + ";"
-//           + std::to_string(rgb.b) + "m"
-//           + str + "\x1b[0m";
-//  }
+  //  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
+  //  {
+  //    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"
+  //           + std::to_string(rgb.g) + ";"
+  //           + std::to_string(rgb.b) + "m"
+  //           + str + "\x1b[0m";
+  //  }
+  //  std::string color_rgb_bg(const std::string &str, const RGB& rgb)
+  //  {
+  //    return "\x1b[48;2;" + std::to_string(rgb.r) + ";"
+  //           + std::to_string(rgb.g) + ";"
+  //           + std::to_string(rgb.b) + "m"
+  //           + str + "\x1b[0m";
+  //  }
 }

@@ -29,7 +29,7 @@ namespace czh::g
   std::atomic<bool> game_suspend = false;
   GameMode game_mode = GameMode::NATIVE;
   size_t user_id = 0;
-  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0 }}};
+  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
   std::chrono::milliseconds tick(16);
   std::chrono::milliseconds msg_ttl(2000);
   std::mutex mainloop_mtx;
@@ -71,7 +71,7 @@ namespace czh::game
 
   std::size_t add_tank(const map::Pos& pos, size_t from_id)
   {
-    if(g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
+    if (g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
     {
       msg::error(from_id, "No available space.");
       return 0;
@@ -108,7 +108,7 @@ namespace czh::game
 
   std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos, size_t from_id)
   {
-    if(g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
+    if (g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
     {
       msg::error(from_id, "No available space.");
       return 0;

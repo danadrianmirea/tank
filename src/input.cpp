@@ -41,7 +41,7 @@ namespace czh::g
 namespace czh::input
 {
   template<typename... Args>
-  void cmd_output(Args &&... args)
+  void cmd_output(Args&&... args)
   {
     std::lock_guard<std::mutex> l(g::drawing_mtx);
     term::output(std::forward<Args>(args)...);
@@ -74,15 +74,15 @@ namespace czh::input
     {
       // command hint
       auto its = utils::find_all_if(g::commands.cbegin(), g::commands.cend(),
-                             [&tokens](auto &&f) { return utils::begin_with(f.cmd, tokens[0]); });
-      for(auto& it : its)
+                                    [&tokens](auto&& f) { return utils::begin_with(f.cmd, tokens[0]); });
+      for (auto& it : its)
         g::hint.emplace_back(it->cmd.substr(tokens[0].size()), true);
       return;
     }
     else if (tokens.size() > 1)
     {
       auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
-                             [a = tokens[0]](auto &&f) { return utils::begin_with(f.cmd, a); });
+                             [a = tokens[0]](auto&& f) { return utils::begin_with(f.cmd, a); });
       if (it != g::commands.end())
       {
         if (tokens.size() - 2 < it->hint_providers.size())
@@ -95,7 +95,7 @@ namespace czh::input
           else
           {
             auto h = it->hint_providers[tokens.size() - 2](tokens[tokens.size() - 2]);
-            for (auto &r: h)
+            for (auto& r : h)
             {
               if (r.applicable && utils::begin_with(r.hint, tokens.back()))
                 g::hint.emplace_back(r.hint.substr(tokens.back().size()), true);
@@ -108,8 +108,8 @@ namespace czh::input
 
     // history hint
     auto its = utils::find_all_if(g::history.cbegin(), g::history.cend(),
-                       [](auto &&f) { return utils::begin_with(f, g::cmd_line); });
-    for(auto& it : its)
+                                  [](auto&& f) { return utils::begin_with(f, g::cmd_line); });
+    for (auto& it : its)
       g::hint.emplace_back(it->substr(g::cmd_line.size()), true);
   }
 

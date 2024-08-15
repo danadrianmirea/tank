@@ -79,68 +79,68 @@ namespace czh::bullet
     }
     return ret;
   }
-  
+
   std::string Bullet::get_text()
   {
-//    std::string ret;
-//    switch (direction)
-//    {
-//      case map::Direction::UP:
-//        break;
-//      case map::Direction::DOWN:
-//        break;
-//      case map::Direction::LEFT:
-//        break;
-//      case map::Direction::RIGHT:
-//        break;
-//    }
+    //    std::string ret;
+    //    switch (direction)
+    //    {
+    //      case map::Direction::UP:
+    //        break;
+    //      case map::Direction::DOWN:
+    //        break;
+    //      case map::Direction::LEFT:
+    //        break;
+    //      case map::Direction::RIGHT:
+    //        break;
+    //    }
     return "**";
   }
-  
+
   [[nodiscard]] bool Bullet::is_alive() const
   {
     return info.hp > 0 && info.range > 0;
   }
-  
+
   [[nodiscard]] std::size_t Bullet::get_tank() const
   {
     return from_tank_id;
   }
-  
+
   void Bullet::kill()
   {
     info.hp = 0;
   }
-  
-  [[nodiscard]]const map::Pos &Bullet::get_pos() const
+
+  [[nodiscard]] const map::Pos& Bullet::get_pos() const
   {
     return pos;
   }
-  
-  map::Pos &Bullet::get_pos()
+
+  map::Pos& Bullet::get_pos()
   {
     return pos;
   }
-  
+
   [[nodiscard]] int Bullet::get_lethality() const
   {
     return info.lethality;
   }
-  
-  Bullet *build_bullet(const BulletData &data)
+
+  Bullet* build_bullet(const BulletData& data)
   {
     auto ret = new Bullet(data.info, data.from_tank_id, data.pos, data.direction);
     return ret;
   }
-  
-  BulletData get_bullet_data(const Bullet * b)
+
+  BulletData get_bullet_data(const Bullet* b)
   {
     return BulletData
-        {
-            .pos = b->pos,
-            .direction = b->direction,
-            .from_tank_id =  b->from_tank_id,
-            .info = b->info
-        };
+    {
+      .pos = b->pos,
+      .direction = b->direction,
+      .from_tank_id = b->from_tank_id,
+      .info = b->info
+    };
   }
 }
