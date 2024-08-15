@@ -774,7 +774,7 @@ namespace czh::input
 
   Input get_input()
   {
-    if (g::typing_command || g::curr_page != game::Page::GAME)
+    if (g::typing_command || g::curr_page != g::Page::GAME)
       return get_raw_input();
 
     while (g::long_press_mode == LongPressMode::On)

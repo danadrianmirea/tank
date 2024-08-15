@@ -31,7 +31,7 @@ void react(tank::NormalTankEvent event)
 {
   if (g::snapshot.tanks[g::user_id].is_alive)
   {
-    if (g::game_mode == game::GameMode::CLIENT)
+    if (g::game_mode == g::GameMode::CLIENT)
     {
       g::online_client.tank_react(event);
     }
@@ -62,11 +62,11 @@ int main()
         while (true)
         {
           std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-          if (g::game_mode == game::GameMode::NATIVE)
+          if (g::game_mode == g::GameMode::NATIVE)
           {
             game::mainloop();
           }
-          else if (g::game_mode == game::GameMode::SERVER)
+          else if (g::game_mode == g::GameMode::SERVER)
           {
             game::mainloop();
             std::vector<size_t> disconnected;
@@ -88,17 +88,20 @@ int main()
               delete g::tanks[r];
               g::tanks.erase(r);
               g::userdata.erase(r);
+              if(g::curr_page == g::Page::STATUS)
+                g::output_inited = false;
             }
           }
-          else if (g::game_mode == game::GameMode::CLIENT)
+          else if (g::game_mode == g::GameMode::CLIENT)
           {
             if (g::client_failed_attempts > 10)
             {
               g::online_client.disconnect();
-              g::game_mode = game::GameMode::NATIVE;
-              g::userdata[0].messages = g::userdata[g::user_id].messages;
+              g::game_mode = g::GameMode::NATIVE;
+              g::userdata = {{0, g::UserData{.user_id = 0,
+                .messages = g::userdata[g::user_id].messages}}};
               g::user_id = 0;
-              g::tank_focus = g::user_id;
+              g::tank_focus = 0;
               g::output_inited = false;
               g::client_failed_attempts = 0;
               msg::critical(g::user_id, "Disconnected due to network issues.");
@@ -116,12 +119,11 @@ int main()
         }
       }
   );
-  game::add_tank({0, 0});
+  game::add_tank(map::Pos{0, 0});
   while (true)
   {
     input::Input i = input::get_input();
-    msg::trace(g::user_id, "Input: " + std::to_string(static_cast<int>(i)));
-    if (g::curr_page == game::Page::GAME)
+    if (g::curr_page == g::Page::GAME)
     {
       switch (i)
       {
@@ -159,12 +161,12 @@ int main()
           react(tank::NormalTankEvent::FIRE);
           break;
         case input::Input::KEY_O:
-          g::curr_page = game::Page::TANK_STATUS;
+          g::curr_page = g::Page::STATUS;
           g::output_inited = false;
           break;
         case input::Input::KEY_L:
         {
-          if (g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == g::GameMode::CLIENT)
           {
             g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
           }
@@ -177,7 +179,7 @@ int main()
           break;
       }
     }
-    else if (g::curr_page == game::Page::HELP)
+    else if (g::curr_page == g::Page::HELP)
     {
       switch (i)
       {
@@ -197,7 +199,7 @@ int main()
           break;
       }
     }
-    else if (g::curr_page == game::Page::TANK_STATUS)
+    else if (g::curr_page == g::Page::STATUS)
     {
       switch (i)
       {
@@ -216,7 +218,7 @@ int main()
           }
           break;
         case input::Input::KEY_O:
-          g::curr_page = game::Page::GAME;
+          g::curr_page = g::Page::GAME;
           g::output_inited = false;
           break;
       }
@@ -239,7 +241,7 @@ int main()
         g::typing_command = false;
         break;
       case input::Input::KEY_ENTER:
-        g::curr_page = game::Page::GAME;
+        g::curr_page = g::Page::GAME;
         g::output_inited = false;
         break;
       case input::Input::KEY_CTRL_C:
@@ -254,15 +256,15 @@ int main()
         {
           std::lock_guard<std::mutex> l1(g::drawing_mtx);
           std::lock_guard<std::mutex> l2(g::mainloop_mtx);
-          if (g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == g::GameMode::CLIENT)
           {
             g::online_client.disconnect();
             g::user_id = 0;
             g::tank_focus = g::user_id;
             g::output_inited = false;
-            g::game_mode = game::GameMode::NATIVE;
+            g::game_mode = g::GameMode::NATIVE;
           }
-          else if (g::game_mode == game::GameMode::SERVER)
+          else if (g::game_mode == g::GameMode::SERVER)
           {
             g::online_server.stop();
             for (auto &r: g::userdata)
@@ -274,7 +276,7 @@ int main()
               g::tanks.erase(r.first);
             }
             g::userdata = {{0, g::userdata[0]}};
-            g::game_mode = game::GameMode::NATIVE;
+            g::game_mode = g::GameMode::NATIVE;
           }
           g::game_suspend = true;
           g::keyboard.deinit();

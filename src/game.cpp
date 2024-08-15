@@ -27,9 +27,9 @@ namespace czh::g
 {
   std::atomic<bool> game_running = true;
   std::atomic<bool> game_suspend = false;
-  game::GameMode game_mode = game::GameMode::NATIVE;
+  GameMode game_mode = GameMode::NATIVE;
   size_t user_id = 0;
-  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
+  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0 }}};
   std::chrono::milliseconds tick(16);
   std::chrono::milliseconds msg_ttl(2000);
   std::mutex mainloop_mtx;
@@ -42,12 +42,12 @@ namespace czh::g
 
 namespace czh::game
 {
-  std::optional<map::Pos> get_available_pos()
+  std::optional<map::Pos> get_available_pos(const map::Zone& zone)
   {
     std::vector<map::Pos> p;
-    for (int i = g::visible_zone.x_min; i < g::visible_zone.x_max; ++i)
+    for (int i = zone.x_min; i < zone.x_max; ++i)
     {
-      for (int j = g::visible_zone.y_min; j < g::visible_zone.y_max; ++j)
+      for (int j = zone.y_min; j < zone.y_max; ++j)
       {
         if (!g::game_map.has(map::Status::WALL, {i, j}) && !g::game_map.has(map::Status::TANK, {i, j}))
         {
@@ -69,8 +69,14 @@ namespace czh::game
     return it->second;
   }
 
-  std::size_t add_tank(const map::Pos& pos)
+  std::size_t add_tank(const map::Pos& pos, size_t from_id)
   {
+    if(g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
+    {
+      msg::error(from_id, "No available space.");
+      return 0;
+    }
+
     g::tanks.insert({
       g::next_id, new tank::NormalTank(info::TankInfo{
                                          .max_hp = 10000,
@@ -89,15 +95,25 @@ namespace czh::game
     return g::next_id - 1;
   }
 
-  std::size_t add_tank()
+  std::size_t add_tank(const map::Zone& zone, size_t from_id)
   {
-    auto pos = get_available_pos();
-    utils::tank_assert(pos.has_value(), "No available space.");
-    return add_tank(*pos);
+    auto pos = get_available_pos(zone);
+    if (!pos.has_value())
+    {
+      msg::error(from_id, "No available space.");
+      return 0;
+    }
+    return add_tank(*pos, from_id);
   }
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos, size_t from_id)
   {
+    if(g::game_map.has(map::Status::WALL, pos) || g::game_map.has(map::Status::TANK, pos))
+    {
+      msg::error(from_id, "No available space.");
+      return 0;
+    }
+
     g::tanks.insert({
       g::next_id,
       new tank::AutoTank(
@@ -119,23 +135,23 @@ namespace czh::game
     return g::next_id - 1;
   }
 
-  std::size_t add_auto_tank(std::size_t lvl)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Zone& zone, size_t from_id)
   {
-    auto pos = get_available_pos();
+    auto pos = get_available_pos(zone);
     if (!pos.has_value())
     {
-      msg::error(g::user_id, "No available space.");
+      msg::error(from_id, "No available space.");
       return 0;
     }
-    return add_auto_tank(lvl, *pos);
+    return add_auto_tank(lvl, *pos, from_id);
   }
 
-  void revive(std::size_t id)
+  void revive(std::size_t id, const map::Zone& zone, size_t from_id)
   {
-    auto pos = get_available_pos();
+    auto pos = get_available_pos(zone);
     if (!pos.has_value())
     {
-      msg::error(g::user_id, "No available space");
+      msg::error(from_id, "No available space");
       return;
     }
     id_at(id)->revive(*pos);
@@ -327,11 +343,11 @@ namespace czh::game
       delete it->second;
       it = g::tanks.erase(it);
     }
-    if (g::game_mode == GameMode::CLIENT)
+    if (g::game_mode == g::GameMode::CLIENT)
     {
       g::online_client.disconnect();
     }
-    else if (g::game_mode == GameMode::SERVER)
+    else if (g::game_mode == g::GameMode::SERVER)
     {
       g::online_server.stop();
     }

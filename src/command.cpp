@@ -24,7 +24,7 @@
 
 namespace czh::g
 {
-  const std::set<std::string> client_cmds
+  const std::set<std::string> remote_cmds
   {
     "fill", "tp", "kill", "clear", "summon", "revive", "set", "tell", "pause", "continue"
   };
@@ -224,7 +224,8 @@ namespace czh::g
     {"tell", "[id, optional], [msg]", {valid_id_provider(), fixed_provider({{"[Message, string]", false}})}},
     {"pause", "** No arguments **", {}},
     {"continue", "** No arguments **", {}},
-    {"quit", "** No arguments **", {}}
+    {"quit", "** No arguments **", {}},
+    {"status", "** No arguments **", {}}
   };
 }
 
@@ -283,9 +284,9 @@ namespace czh::cmd
   void run_command(size_t user_id, const std::string &str)
   {
     auto call = parse(str);
-    if (g::game_mode == game::GameMode::CLIENT)
+    if (g::game_mode == g::GameMode::CLIENT)
     {
-      if (g::client_cmds.find(call.name) != g::client_cmds.end())
+      if (g::remote_cmds.find(call.name) != g::remote_cmds.end())
       {
         g::online_client.run_command(str);
         return;
@@ -306,8 +307,17 @@ namespace czh::cmd
         g::help_lineno = i;
       }
       else goto invalid_args;
-      g::curr_page = game::Page::HELP;
+      g::curr_page = g::Page::HELP;
       g::output_inited = false;
+    }
+    else if(call.is("status"))
+    {
+      if (call.args.empty())
+      {
+        g::curr_page = g::Page::STATUS;
+        g::output_inited = false;
+      }
+      else goto invalid_args;
     }
     else if (call.is("quit"))
     {
@@ -615,8 +625,13 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](int id, std::string key, int value)
         {
+          if(!utils::is_valid_id(id)) return false;
+          auto t = game::id_at(id);
           return utils::is_valid_id(id) &&
-                 (key == "max_hp" || key == "hp" || key == "target");
+                 ((key == "max_hp" && value > 0)
+                   || (key == "hp" && value > 0 && value <= t->get_max_hp())
+                   || (key == "target" && t->is_auto() && t->is_alive()
+                     && utils::is_valid_id(value) && value != id && game::id_at(value)->is_alive()));
         }); v)
       {
         auto [id, key, value] = *v;
@@ -629,27 +644,18 @@ namespace czh::cmd
         }
         else if (key == "hp")
         {
-          if (!game::id_at(id)->is_alive()) game::revive(id);
-          game::id_at(id)->get_hp() = value;
-          msg::info(user_id, "The hp of " + game::id_at(id)->get_name()
+          auto tank = game::id_at(id);
+          if (!tank->is_alive()) game::revive(id);
+          tank->get_hp() = value;
+          msg::info(user_id, "The hp of " + tank->get_name()
                              + " was set to " + std::to_string(value) + ".");
           return;
         }
         else if (key == "target")
         {
-          if (game::id_at(value) == nullptr || !game::id_at(value)->is_alive())
-          {
-            msg::error(user_id, "Invalid target.");
-            return;
-          }
-          if (!game::id_at(id)->is_auto())
-          {
-            msg::error(user_id, "Invalid auto tank.");
-            return;
-          }
-          auto atank = dynamic_cast<tank::AutoTank *>(game::id_at(id));
-          atank->target(value, game::id_at(value)->get_pos());
-          msg::info(user_id, "The target of " + atank->get_name() + " was set to " + std::to_string(value) + ".");
+          auto tank = dynamic_cast<tank::AutoTank *>(game::id_at(id));
+          tank->target(value, game::id_at(value)->get_pos());
+          msg::info(user_id, "The target of " + tank->get_name() + " was set to " + std::to_string(value) + ".");
           return;
         }
       }
@@ -734,19 +740,19 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](std::string key, int port)
         {
-          return g::game_mode == game::GameMode::NATIVE && key == "start" && utils::is_port(port);
+          return g::game_mode == g::GameMode::NATIVE && key == "start" && utils::is_port(port);
         }); v)
       {
         auto [s, port] = *v;
         g::online_server.init();
         g::online_server.start(port);
-        g::game_mode = game::GameMode::SERVER;
+        g::game_mode = g::GameMode::SERVER;
         msg::info(user_id, "Server started at " + std::to_string(port));
       }
       else if (auto v = call.get_if(
         [](std::string key)
         {
-          return g::game_mode == game::GameMode::SERVER && key == "stop";
+          return g::game_mode == g::GameMode::SERVER && key == "stop";
         }); v)
       {
         g::online_server.stop();
@@ -759,7 +765,7 @@ namespace czh::cmd
           g::tanks.erase(r.first);
         }
         g::userdata = {{0, g::userdata[0]}};
-        g::game_mode = game::GameMode::NATIVE;
+        g::game_mode = g::GameMode::NATIVE;
         msg::info(user_id, "Server stopped");
       }
       else goto invalid_args;
@@ -770,7 +776,7 @@ namespace czh::cmd
       if (auto v = call.get_if(
         [](std::string ip, int port)
         {
-          return g::game_mode == game::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port);
+          return g::game_mode == g::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port);
         }); v)
       {
         auto [ip, port] = *v;
@@ -778,10 +784,10 @@ namespace czh::cmd
         auto try_connect = g::online_client.connect(ip, port);
         if (try_connect.has_value())
         {
-          g::game_mode = game::GameMode::CLIENT;
+          g::game_mode = g::GameMode::CLIENT;
           g::user_id = *try_connect;
           g::tank_focus = g::user_id;
-          g::userdata[g::user_id] = g::UserData{.user_id = g::user_id};
+          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id}}};
           g::output_inited = false;
           msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
         }
@@ -790,10 +796,10 @@ namespace czh::cmd
     }
     else if (call.is("disconnect"))
     {
-      if (g::game_mode == game::GameMode::CLIENT && call.args.empty())
+      if (g::game_mode == g::GameMode::CLIENT && call.args.empty())
       {
         g::online_client.disconnect();
-        g::game_mode = game::GameMode::NATIVE;
+        g::game_mode = g::GameMode::NATIVE;
         g::user_id = 0;
         g::tank_focus = g::user_id;
         g::output_inited = false;

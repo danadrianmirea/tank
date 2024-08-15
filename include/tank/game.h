@@ -19,34 +19,23 @@
 #include <utility>
 #include <optional>
 
+#include "globals.h"
+
 namespace czh::game
 {
-  enum class GameMode
-  {
-    NATIVE, SERVER, CLIENT,
-  };
-  
-  enum class Page
-  {
-    GAME,
-    TANK_STATUS,
-    MAIN,
-    HELP,
-  };
-  
-  std::optional<map::Pos> get_available_pos();
+  std::optional<map::Pos> get_available_pos(const map::Zone& zone);
   
   tank::Tank *id_at(size_t id);
   
-  void revive(std::size_t id);
+  void revive(std::size_t id, const map::Zone& zone = g::visible_zone, size_t from_id = g::user_id);
   
-  std::size_t add_auto_tank(std::size_t lvl);
+  std::size_t add_auto_tank(std::size_t lvl, const map::Zone& zone = g::visible_zone, size_t from_id = g::user_id);
   
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos);
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos, size_t from_id = g::user_id);
   
-  std::size_t add_tank(const map::Pos &pos);
+  std::size_t add_tank(const map::Pos &pos, size_t from_id = g::user_id);
   
-  std::size_t add_tank();
+  std::size_t add_tank(const map::Zone& zone = g::visible_zone, size_t from_id = g::user_id);
   
   void clear_death();
   

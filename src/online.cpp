@@ -229,7 +229,11 @@ namespace czh::online
 
   int TCPSocket::send(const std::string& str) const
   {
-    MsgHeader header{.magic = htonl(HEADER_MAGIC), .content_length = htonl(str.size())};
+    MsgHeader header{
+      .magic = htonl(HEADER_MAGIC),
+      .version = htons(PROTOCOL_VERSION),
+      .content_length = htonl(str.size())
+    };
     if (send_all_data(fd, reinterpret_cast<const char*>(&header), sizeof(MsgHeader)) != 0) return -1;
     if (send_all_data(fd, str.data(), static_cast<int>(str.size())) != 0) return -1;
     return 0;
@@ -244,9 +248,14 @@ namespace czh::online
       return std::nullopt;
     }
 
-    if (ntohl(header.magic) != HEADER_MAGIC)
+    if (ntohl(header.magic) != HEADER_MAGIC || ntohs(header.version) != PROTOCOL_VERSION)
     {
-      msg::warn(g::user_id, "Ignore invalid data");
+      auto addr = get_peer_addr();
+      if (!addr.has_value())
+        msg::warn(g::user_id, "Ignore invalid data");
+      else
+        msg::warn(g::user_id, "Ignore invalid data from " + addr->to_string());
+
       return std::nullopt;
     }
 
@@ -496,7 +505,8 @@ namespace czh::online
         }
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>
             (std::chrono::steady_clock::now() - beg);
-        res.set_content(make_response(d.count(), changes, drawing::extract_tanks(),
+        res.set_content(make_response(d.count(), drawing::extract_userinfo(),
+                                      changes, drawing::extract_tanks(),
                                       g::userdata[id].messages, drawing::extract_map(zone)));
         g::userdata[id].messages = decltype(g::userdata[id].messages){};
         g::userdata[id].map_changes.clear();
@@ -509,7 +519,7 @@ namespace czh::online
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
         auto id = game::add_tank();
         g::userdata[id] = g::UserData{
-          .user_id = g::user_id,
+          .user_id = id,
           .ip = req.get_addr().ip(),
           .port = port,
           .screen_width = screen_width,
@@ -518,6 +528,8 @@ namespace czh::online
         g::userdata[id].last_update = std::chrono::steady_clock::now();
         msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
         res.set_content(make_response(id));
+        if (g::curr_page == g::Page::STATUS)
+          g::output_inited = false;
       }
       else if (cmd == "deregister")
       {
@@ -532,9 +544,9 @@ namespace czh::online
       }
       else if (cmd == "add_auto_tank")
       {
-        auto [lvl, pos] = ser::deserialize<int, map::Pos>(args);
+        auto [id, zone, lvl] = ser::deserialize<size_t, map::Zone, size_t>(args);
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        game::add_auto_tank(lvl, pos);
+        game::add_auto_tank(lvl, zone, id);
       }
       else if (cmd == "run_command")
       {
@@ -606,7 +618,7 @@ namespace czh::online
     return cli->send(content);
   }
 
-  int TankClient::update()
+  int TankClient::update() const
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
@@ -621,10 +633,14 @@ namespace czh::online
     int delay;
     auto old_seed = g::snapshot.map.seed;
     std::priority_queue<msg::Message> msgs;
-    std::tie(delay, g::snapshot.changes, g::snapshot.tanks, msgs, g::snapshot.map)
-        = ser::deserialize<int, std::set<map::Pos>, std::map<size_t, drawing::TankView>,
-          std::priority_queue<msg::Message>,
-          drawing::MapView>(*ret);
+    std::tie(delay, g::snapshot.userinfo, g::snapshot.changes, g::snapshot.tanks, msgs, g::snapshot.map)
+        = ser::deserialize<
+          decltype(delay),
+          decltype(g::snapshot.userinfo),
+          decltype(g::snapshot.changes),
+          decltype(g::snapshot.tanks),
+          decltype(msgs),
+          decltype(g::snapshot.map)>(*ret);
     int curr_delay = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>
                        (std::chrono::steady_clock::now() - beg).count()) - delay;
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
@@ -640,13 +656,7 @@ namespace czh::online
   int TankClient::add_auto_tank(size_t lvl) const
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    auto pos = game::get_available_pos();
-    if (!pos.has_value())
-    {
-      msg::error(g::user_id, "No available space.");
-      return -1;
-    }
-    std::string content = make_request("add_auto_tank", g::user_id, pos, lvl);
+    std::string content = make_request("add_auto_tank", g::user_id, g::visible_zone, lvl);
     return cli->send(content);
   }
 

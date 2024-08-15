@@ -45,7 +45,8 @@
 
 namespace czh::online
 {
-  constexpr int HEADER_MAGIC = 0x18273645;
+  constexpr uint32_t HEADER_MAGIC = 0x18273645;
+  constexpr uint16_t PROTOCOL_VERSION = 1;
 
 #ifdef _WIN32
   extern WSADATA wsa_data;
@@ -74,6 +75,7 @@ namespace czh::online
   struct MsgHeader
   {
     uint32_t magic;
+    uint16_t version;
     uint32_t content_length;
   };
   
@@ -251,7 +253,7 @@ namespace czh::online
     
     int tank_react(tank::NormalTankEvent e) const;
     
-    int update();
+    int update() const;
     
     int add_auto_tank(size_t l) const;
     

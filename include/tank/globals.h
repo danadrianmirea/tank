@@ -23,8 +23,6 @@
 #include "input.h"
 #include "message.h"
 #include "drawing.h"
-#include "game.h"
-
 
 #include <string>
 #include <set>
@@ -48,11 +46,24 @@ namespace czh::g
     size_t screen_width;
     size_t screen_height;
   };
+
+  enum class GameMode
+  {
+    NATIVE, SERVER, CLIENT,
+  };
+
+  enum class Page
+  {
+    GAME,
+    STATUS,
+    MAIN,
+    HELP,
+  };
   
   // game.cpp
   extern std::atomic<bool> game_running; // Tank Command: pause continue
   extern std::atomic<bool> game_suspend; // CTRL-Z
-  extern game::GameMode game_mode;
+  extern GameMode game_mode;
   extern std::map<size_t, UserData> userdata;
   extern size_t user_id;
   extern size_t next_id;
@@ -82,14 +93,15 @@ namespace czh::g
   extern long long_pressing_threshold;
 
   // command.cpp
-  extern const std::set<std::string> client_cmds;
+  extern const std::set<std::string> remote_cmds;
   extern const std::vector<cmd::CommandInfo> commands;
 
   // drawing.cpp
   extern bool output_inited;
   extern size_t tank_focus;
-  extern game::Page curr_page;
+  extern Page curr_page;
   extern std::vector<std::string> help_text;
+  extern std::vector<std::string> status_text;
   extern size_t status_lineno;
   extern size_t help_lineno;
   extern map::Zone visible_zone;

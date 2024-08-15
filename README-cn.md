@@ -8,7 +8,7 @@ Tank
 
 ### 简介
 
-在 Tank 中，你将控制一辆坦克，在无尽的地图上展示你的战略才华(可以与在线联机)。
+在 Tank 中，你将控制一辆坦克，在无尽的地图上展示你的战略才华(可以在线联机)。
 
 ### 示例
 
@@ -41,6 +41,10 @@ help [line]
 
 - 获取此帮助。
 - 使用“Enter”返回游戏。
+
+status
+
+- 查看状态页。
 
 quit
 
@@ -96,7 +100,7 @@ set [A id] [key] [value]
 
 - 设置 A 的属性(如下)：
 - max_hp (int): A的最大 hp。在 A 复活时生效。
-- hp (int): A 的 hp。立即生效，但在 A 复活后不会持续。
+- hp (int, < max_hp): A 的 hp。
 - target (id, int): 人机的目标。
 - name (string): A的名字。
 
@@ -112,13 +116,17 @@ set tick [tick]
 
 - tick (int, milliseconds): 游戏（或服务器）主循环的最短时间。
 
-set msg_ttl [ttl]
+set msgTTL [ttl]
 
-- ttl (int, milliseconds): 消息的显示时间。
+- TTL (int, milliseconds): 消息的显示时间。
+
+set longPressTH [threshold]
+
+- threshold (int, microseconds): 长按识别阈值。
 
 set seed [seed]
 
-- seed (unsigned long long): 游戏地图的种子。
+- seed (int): 游戏地图的种子。
 
 tell [A id optional] [msg]
 

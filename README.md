@@ -43,6 +43,9 @@ help [line]
 - Get this help.
 - Use 'Enter' to return game.
 
+status
+- show Status page.
+
 quit
 
 - Quit Tank.
@@ -99,7 +102,7 @@ set [A id] [key] [value]
 
 - Set A's attribute below:
 - max_hp (int): Max hp of A. This will take effect when A is revived.
-- hp (int): hp of A. This takes effect immediately but won't last when A is revived.
+- hp (int, < max_hp): hp of A.
 - target (id, int): Auto Tank's target. Target should be alive.
 - name (string): Name of A.
 
@@ -116,13 +119,17 @@ set tick [tick]
 
 - tick (int, milliseconds): minimum time of the game's(or server's) mainloop.
 
-set msg_ttl [ttl]
+set msgTTL [ttl]
 
-- ttl (int, milliseconds): a message's time to live.
+- TTL (int, milliseconds): a message's time to live.
+
+set longPressTH [threshold]
+
+- threshold (int, microseconds): long pressing threshold.
 
 set seed [seed]
 
-- seed (unsigned long long): the game map's seed.
+- seed (int): the game map's seed.
 
 tell [A id optional] [msg]
 

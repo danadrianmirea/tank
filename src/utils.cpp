@@ -135,7 +135,7 @@ namespace czh::utils
   {
     return escape_code_len(str.cbegin(), str.cend());
   }
-  
+
   std::string color_256_fg(const std::string &str, int color)
   {
     return "\x1b[38;5;" + std::to_string(color) + "m" + str + "\x1b[0m";

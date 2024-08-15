@@ -68,11 +68,18 @@ namespace czh::drawing
     bool is_alive{false};
   };
 
+  struct UserView
+  {
+    size_t user_id;
+    std::string ip;
+  };
+
   struct Snapshot
   {
     MapView map;
     std::map<size_t, TankView> tanks;
     std::set<map::Pos> changes;
+    std::map<size_t, UserView> userinfo;
   };
 
   extern PointView empty_point_view;
@@ -87,6 +94,8 @@ namespace czh::drawing
   MapView extract_map(const map::Zone& zone);
 
   std::map<size_t, TankView> extract_tanks();
+
+  std::map<size_t, UserView> extract_userinfo();
 
   map::Zone get_visible_zone(size_t w, size_t h, size_t id);
 
