@@ -151,7 +151,7 @@ namespace czh::map
     return pos1.x < pos2.x;
   }
   
-  std::size_t get_distance(const map::Pos &from, const map::Pos &to)
+  std::size_t get_distance(const Pos &from, const Pos &to)
   {
     return std::abs(from.x - to.x) + std::abs(from.y - to.y);
   }

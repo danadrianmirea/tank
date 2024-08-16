@@ -325,7 +325,8 @@ namespace czh::cmd
     {
       if (call.args.empty())
       {
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         term::move_cursor({0, g::screen_height + 1});
         term::output("\033[?25h");
         msg::info(user_id, "Quitting.");
@@ -355,7 +356,8 @@ namespace czh::cmd
     }
     else if (call.is("fill"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       int from_x;
       int from_y;
       int to_x;
@@ -414,7 +416,8 @@ namespace czh::cmd
     }
     else if (call.is("tp"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       int id = -1;
       map::Pos to_pos;
       auto check = [](const map::Pos& p)
@@ -464,13 +467,14 @@ namespace czh::cmd
     }
     else if (call.is("revive"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       int id;
       if (call.args.empty())
       {
         for (auto& r : g::tanks)
         {
-          if (!r.second->is_alive()) game::revive(r.second->get_id());
+          game::revive(r.second->get_id());
         }
         msg::info(user_id, "Revived all tanks.");
         return;
@@ -485,7 +489,8 @@ namespace czh::cmd
     }
     else if (call.is("summon"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       int num, lvl;
       if (auto v = call.get_if(
         [](int num, int lvl)
@@ -515,7 +520,8 @@ namespace czh::cmd
     }
     else if (call.is("kill"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (call.args.empty())
       {
         for (auto& r : g::tanks)
@@ -537,7 +543,10 @@ namespace czh::cmd
     }
     else if (call.is("clear"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      if(g::curr_page == g::Page::STATUS)
+        g::output_inited = false;
       if (call.args.empty())
       {
         for (auto& r : g::bullets)
@@ -623,7 +632,8 @@ namespace czh::cmd
     }
     else if (call.is("set"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
         [](int id, std::string key, int value)
         {
@@ -656,7 +666,7 @@ namespace czh::cmd
         else if (key == "target")
         {
           auto tank = dynamic_cast<tank::AutoTank*>(game::id_at(id));
-          tank->target(value, game::id_at(value)->get_pos());
+          tank->set_target(value);
           msg::info(user_id, "The target of " + tank->get_name() + " was set to " + std::to_string(value) + ".");
           return;
         }
@@ -738,7 +748,8 @@ namespace czh::cmd
     }
     else if (call.is("server"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      //std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
         [](std::string key, int port)
         {
@@ -774,7 +785,8 @@ namespace czh::cmd
     }
     else if (call.is("connect"))
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
         [](std::string ip, int port)
         {

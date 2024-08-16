@@ -494,7 +494,8 @@ namespace czh::online
       {
         auto [id, zone] = ser::deserialize<size_t, map::Zone>(args);
         auto beg = std::chrono::steady_clock::now();
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        //std::lock_guard<std::mutex> dl(g::drawing_mtx);
         std::set<map::Pos> changes;
         for (auto& r : g::userdata[id].map_changes)
         {
@@ -516,7 +517,8 @@ namespace czh::online
       {
         auto [port, screen_width, screen_height] =
             ser::deserialize<int, size_t, size_t>(args);
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         auto id = game::add_tank();
         g::userdata[id] = g::UserData{
           .user_id = id,
@@ -534,7 +536,8 @@ namespace czh::online
       else if (cmd == "deregister")
       {
         auto id = ser::deserialize<size_t>(args);
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") disconnected.");
         g::tanks[id]->kill();
         g::tanks[id]->clear();
@@ -545,7 +548,8 @@ namespace czh::online
       else if (cmd == "add_auto_tank")
       {
         auto [id, zone, lvl] = ser::deserialize<size_t, map::Zone, size_t>(args);
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         game::add_auto_tank(lvl, zone, id);
       }
       else if (cmd == "run_command")

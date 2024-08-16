@@ -66,6 +66,8 @@ namespace czh::drawing
     map::Direction direction{map::Direction::END};
     bool is_auto{false};
     bool is_alive{false};
+    bool has_good_target{false};
+    size_t target_id{0};
   };
 
   struct UserView

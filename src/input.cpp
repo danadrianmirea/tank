@@ -333,6 +333,7 @@ namespace czh::input
     next_history();
     g::cmd_line = g::history[g::history_pos];
     g::cmd_pos = g::cmd_line.size();
+    get_hint();
     edit_refresh_line();
     move_to_end(false);
   }

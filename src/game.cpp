@@ -87,7 +87,7 @@ namespace czh::game
                                          {
                                            .hp = 1,
                                            .lethality = 100,
-                                           .range = 30,
+                                           .range = 60,
                                          }
                                        }, pos)
     });
@@ -127,7 +127,7 @@ namespace czh::game
           {
             .hp = 1,
             .lethality = static_cast<int>(11 - lvl) * 15,
-            .range = 30
+            .range = 60
           }
         }, pos)
     });
@@ -215,7 +215,8 @@ namespace czh::game
   {
     if (!g::game_running) return;
 
-    std::lock_guard<std::mutex> l(g::mainloop_mtx);
+    std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+    std::lock_guard<std::mutex> dl(g::drawing_mtx);
 
     //auto tank
     for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
@@ -237,47 +238,50 @@ namespace czh::game
     }
 
     //normal tank
-    for (auto& r : g::normal_tank_events)
     {
-      auto tank = dynamic_cast<tank::NormalTank*>(id_at(r.first));
-      switch (r.second)
+      std::lock_guard<std::mutex> tl(g::tank_reacting_mtx);
+      for (auto& r : g::normal_tank_events)
       {
-        case tank::NormalTankEvent::UP:
-          tank->up();
+        auto tank = dynamic_cast<tank::NormalTank*>(id_at(r.first));
+        switch (r.second)
+        {
+          case tank::NormalTankEvent::UP:
+            tank->up();
           break;
-        case tank::NormalTankEvent::DOWN:
-          tank->down();
+          case tank::NormalTankEvent::DOWN:
+            tank->down();
           break;
-        case tank::NormalTankEvent::LEFT:
-          tank->left();
+          case tank::NormalTankEvent::LEFT:
+            tank->left();
           break;
-        case tank::NormalTankEvent::RIGHT:
-          tank->right();
+          case tank::NormalTankEvent::RIGHT:
+            tank->right();
           break;
-        case tank::NormalTankEvent::FIRE:
-          tank->fire();
+          case tank::NormalTankEvent::FIRE:
+            tank->fire();
           break;
-        case tank::NormalTankEvent::UP_AUTO:
-          tank->start_auto_drive(tank::NormalTankEvent::UP);
+          case tank::NormalTankEvent::UP_AUTO:
+            tank->start_auto_drive(tank::NormalTankEvent::UP);
           break;
-        case tank::NormalTankEvent::DOWN_AUTO:
-          tank->start_auto_drive(tank::NormalTankEvent::DOWN);
+          case tank::NormalTankEvent::DOWN_AUTO:
+            tank->start_auto_drive(tank::NormalTankEvent::DOWN);
           break;
-        case tank::NormalTankEvent::LEFT_AUTO:
-          tank->start_auto_drive(tank::NormalTankEvent::LEFT);
+          case tank::NormalTankEvent::LEFT_AUTO:
+            tank->start_auto_drive(tank::NormalTankEvent::LEFT);
           break;
-        case tank::NormalTankEvent::RIGHT_AUTO:
-          tank->start_auto_drive(tank::NormalTankEvent::RIGHT);
+          case tank::NormalTankEvent::RIGHT_AUTO:
+            tank->start_auto_drive(tank::NormalTankEvent::RIGHT);
           break;
-        case tank::NormalTankEvent::FIRE_AUTO:
-          tank->start_auto_drive(tank::NormalTankEvent::FIRE);
+          case tank::NormalTankEvent::FIRE_AUTO:
+            tank->start_auto_drive(tank::NormalTankEvent::FIRE);
           break;
-        case tank::NormalTankEvent::AUTO_OFF:
-          tank->stop_auto_drive();
+          case tank::NormalTankEvent::AUTO_OFF:
+            tank->stop_auto_drive();
           break;
+        }
       }
+      g::normal_tank_events.clear();
     }
-    g::normal_tank_events.clear();
 
     // bullet move
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
@@ -318,10 +322,9 @@ namespace czh::game
             if (tank->is_auto())
             {
               auto t = dynamic_cast<tank::AutoTank*>(tank);
-              if (attacker != t->get_id()
-                  && map::get_distance(tank_attacker->get_pos(), tank->get_pos()) < 30)
+              if (attacker != t->get_id())
               {
-                t->target(attacker, tank_attacker->get_pos());
+                t->set_target(attacker);
               }
             }
             tank->attacked(lethality);

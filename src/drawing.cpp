@@ -153,15 +153,26 @@ namespace czh::drawing
     std::map<size_t, TankView> view;
     for (auto& r : g::tanks)
     {
-      view[r.first] =
-          TankView{
-            .info = r.second->get_info(),
-            .hp = r.second->get_hp(),
-            .pos = r.second->get_pos(),
-            .direction = r.second->get_direction(),
-            .is_auto = r.second->is_auto(),
-            .is_alive = r.second->is_alive()
-          };
+      auto tv = TankView{
+        .info = r.second->get_info(),
+        .hp = r.second->get_hp(),
+        .pos = r.second->get_pos(),
+        .direction = r.second->get_direction(),
+        .is_auto = r.second->is_auto(),
+        .is_alive = r.second->is_alive(),
+        .has_good_target = false,
+        .target_id = 0
+      };
+      if (r.second->is_auto())
+      {
+        auto at = dynamic_cast<tank::AutoTank*>(r.second);
+        if (at->is_target_good())
+        {
+          tv.has_good_target = true;
+          tv.target_id = at->get_target_id();
+        }
+      }
+      view[r.first] = tv;
     }
     return view;
   }
@@ -788,6 +799,7 @@ Command:
                                                                 return a.second.user_id <
                                                                        b.second.user_id;
                                                               })->second.user_id).size();
+        if (user_id_size < 2) user_id_size = 2;
 
         size_t ip_size = std::max_element(g::snapshot.userinfo.begin(), g::snapshot.userinfo.end(),
                                           [](auto&& a, auto&& b)
@@ -795,6 +807,7 @@ Command:
                                             return a.second.ip.size() <
                                                    b.second.ip.size();
                                           })->second.ip.size();
+        if (ip_size == 0) ip_size = 6;
 
         term::move_cursor({0, cursor_y++});
         term::output(std::left,
@@ -807,8 +820,7 @@ Command:
           if (cursor_y == g::status_lineno - 1)
             term::output("\x1b[48;5;8m");
 
-          term::output(std::left,
-                       std::setw(static_cast<int>(user_id_size)), it->second.user_id, "  ");
+          term::output(std::left, std::setw(static_cast<int>(user_id_size)), it->second.user_id, "  ");
           if (it->second.ip.empty())
             term::output(std::left, std::setw(static_cast<int>(ip_size)), "Native");
           else
@@ -826,6 +838,7 @@ Command:
                                                                 return a.second.info.id <
                                                                        b.second.info.id;
                                                               })->second.info.id).size();
+        if (tank_id_size < 2) tank_id_size = 2;
         size_t name_size = std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
                                             [](auto&& a, auto&& b)
                                             {
@@ -857,7 +870,9 @@ Command:
                                                                 b.second.info.bullet.lethality;
                                                           })->second.info.bullet.lethality).size();
         if (atk_size < 3) atk_size = 3;
-        size_t gap_size = g::screen_width - tank_id_size - name_size - pos_size - hp_size - atk_size - 10;
+        size_t gap_size = 3;
+        size_t target_size = g::screen_width - tank_id_size - name_size - pos_size - hp_size - atk_size - gap_size - 12;
+        if (target_size < 6) target_size = 6;
         term::move_cursor({0, cursor_y++});
         term::output(std::left,
                      std::setw(static_cast<int>(tank_id_size)), "ID", "  ",
@@ -865,7 +880,8 @@ Command:
                      std::setw(static_cast<int>(pos_size)), "Pos", "  ",
                      std::setw(static_cast<int>(hp_size)), "HP", "  ",
                      std::setw(static_cast<int>(atk_size)), "ATK", "  ",
-                     std::setw(static_cast<int>(gap_size)), "Gap");
+                     std::setw(static_cast<int>(gap_size)), "Gap", "  ",
+                     std::setw(static_cast<int>(target_size)), "Target", "  ");
 
         if (g::status_lineno > g::snapshot.tanks.size()) g::status_lineno = 1;
 
@@ -894,11 +910,16 @@ Command:
                          std::setw(static_cast<int>(atk_size)), tank.info.bullet.lethality, "  ");
             if (tank.is_auto)
             {
-              term::output(std::left, std::setw(static_cast<int>(gap_size)), tank.info.gap);
+              term::output(std::left, std::setw(static_cast<int>(gap_size)), tank.info.gap, "  ");
+              if(tank.has_good_target)
+                term::output(std::left, std::setw(static_cast<int>(target_size)), tank.target_id);
+              else
+                term::output(std::left, std::setw(static_cast<int>(target_size)), "-");
             }
             else
             {
-              term::output(std::left, std::setw(static_cast<int>(gap_size)), "-");
+              term::output(std::left, std::setw(static_cast<int>(gap_size)), "-", "  ",
+                           std::setw(static_cast<int>(target_size)), "-");
             }
             if (cursor_y == g::status_lineno - 1)
             {

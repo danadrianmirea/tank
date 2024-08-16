@@ -178,7 +178,8 @@ int main()
           }
           else
           {
-            std::lock_guard<std::mutex> l(g::mainloop_mtx);
+            std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+            std::lock_guard<std::mutex> dl(g::drawing_mtx);
             game::add_auto_tank(utils::randnum<int>(1, 11));
           }
         }
@@ -255,7 +256,8 @@ int main()
         break;
       case input::Input::KEY_CTRL_C:
       {
-        std::lock_guard<std::mutex> l(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         game::quit();
         std::exit(0);
       }
@@ -263,8 +265,8 @@ int main()
 #ifdef SIGCONT
       case input::Input::KEY_CTRL_Z:
       {
-        std::lock_guard<std::mutex> l1(g::drawing_mtx);
-        std::lock_guard<std::mutex> l2(g::mainloop_mtx);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
         if (g::game_mode == g::GameMode::CLIENT)
         {
           g::online_client.disconnect();
