@@ -67,6 +67,7 @@ namespace czh::g
   extern std::map<size_t, UserData> userdata;
   extern size_t user_id;
   extern size_t next_id;
+  extern size_t next_bullet_id;
   extern std::chrono::milliseconds tick;
   extern std::chrono::milliseconds msg_ttl;
   extern std::mutex mainloop_mtx;
@@ -111,16 +112,16 @@ namespace czh::g
   extern drawing::Snapshot snapshot;
   extern std::chrono::steady_clock::time_point last_drawing;
   extern std::chrono::steady_clock::time_point last_message_displayed;
-  extern drawing::PointView empty_point_view;
-  extern drawing::PointView wall_point_view;
+  extern const drawing::PointView empty_point_view;
+  extern const drawing::PointView wall_point_view;
   extern drawing::Style style;
   extern std::mutex drawing_mtx;
   
   // game_map.cpp
   extern map::Map game_map;
   extern unsigned long long seed;
-  extern map::Point empty_point;
-  extern map::Point wall_point;
+  extern const map::Point empty_point;
+  extern const map::Point wall_point;
   
   // online.cpp
   extern online::TankServer online_server;

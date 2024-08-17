@@ -21,9 +21,10 @@ namespace czh::info
 {
   struct BulletInfo
   {
-    int hp;
-    int lethality;
-    int range;
+    size_t id{0};
+    int hp{0};
+    int lethality{0};
+    int range{0};
   };
 
   enum class TankType
@@ -33,11 +34,11 @@ namespace czh::info
 
   struct TankInfo
   {
-    int max_hp;
+    size_t id{0};
+    int max_hp{0};
     std::string name;
-    std::size_t id;
-    int gap;
-    TankType type;
+    int gap{0};
+    TankType type{TankType::AUTO};
     BulletInfo bullet;
   };
 }

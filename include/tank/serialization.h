@@ -22,6 +22,7 @@
 #include <queue>
 #include <iterator>
 #include <bitset>
+#include <variant>
 #include <tuple>
 
 #include <cstring>
@@ -59,6 +60,19 @@ namespace czh::ser
 
     template<typename T>
     constexpr bool is_map_v = is_map<T>::value;
+
+    template<typename T>
+    struct is_variant : public std::false_type
+    {
+    };
+
+    template<typename... Arg>
+    struct is_variant<std::variant<Arg...> > : public std::true_type
+    {
+    };
+
+    template<typename T>
+    constexpr bool is_variant_v = is_variant<T>::value;
 
     template<typename T>
     struct is_tuple : public std::false_type
@@ -208,6 +222,7 @@ namespace czh::ser
     struct container_tag {};
     struct string_tag {};
     struct map_tag {};
+    struct variant_tag {};
     struct pair_tag {};
     struct tuple_tag {};
     struct struct_tag {};
@@ -288,12 +303,13 @@ namespace czh::ser
           std::conditional_t<std::is_enum_v<R>, enum_tag,
               std::conditional_t<std::is_same_v<R, std::string>, string_tag,
                   std::conditional_t<is_map_v<R>, map_tag,
+                    std::conditional_t<is_variant_v<R>, variant_tag,
                       std::conditional_t<is_pair_v<R>, pair_tag,
                           std::conditional_t<is_tuple_v<R>, tuple_tag,
                               std::conditional_t<is_serializable_container_v<R>, container_tag,
                                   std::conditional_t<is_serializable_struct_v<R>, struct_tag,
                                       std::conditional_t<std::is_trivially_copyable_v<R>, trivially_copy_tag,
-                                          not_implemented_tag>>>>>>>>>;
+                                          not_implemented_tag>>>>>>>>>>;
     };
 
     template<typename T>
@@ -485,6 +501,39 @@ namespace czh::ser
       }
     }
 
+    // TODO: variant
+
+    template<typename T>
+    std::string internal_serialize(variant_tag, const T &item) = delete;
+    // {
+    //   std::string buf;
+    //   buf.resize(128);
+    //   size_t pos = 0;
+    //
+    //   item_serialize_helper(buf, pos, item.index());
+    //   std::visit(
+    //       [&buf, &pos, &item](auto &&e)
+    //       {
+    //         item_serialize_helper(buf, pos, item);
+    //       }, item);
+    //   return buf.substr(0, pos);
+    // }
+
+    template<typename T>
+    T internal_deserialize(variant_tag, const std::string &str) = delete;
+    // {
+    //   if (str.empty()) return T{};
+    //   T ret;
+    //
+    //
+    //
+    //   // size_t pos = 0;
+    //   //
+    //   // auto index = item_deserialize_helper<size_t>(str, pos);
+    //
+    //   return ret;
+    // }
+
     template<typename T>
     std::string internal_serialize(pair_tag, const T &item)
     {
@@ -507,7 +556,7 @@ namespace czh::ser
       auto first = item_deserialize_helper<typename T::first_type>(str, pos);
       auto second = item_deserialize_helper<typename T::second_type>(str, pos);
       // Note:
-      // The order of evaluation of function arguments is unspecified in C++,
+      // The order of evaluation of function arguments is NOT specified in C++,
       // so don't do something like this:
       //      return std::make_pair(item_deserialize_helper<typename T::first_type>(str, pos),
       //                            item_deserialize_helper<typename T::second_type>(str, pos));

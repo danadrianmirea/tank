@@ -79,9 +79,9 @@ namespace czh::game
 
     g::tanks.insert({
       g::next_id, new tank::NormalTank(info::TankInfo{
+                                         .id = g::next_id,
                                          .max_hp = 10000,
                                          .name = "Tank " + std::to_string(g::next_id),
-                                         .id = g::next_id,
                                          .type = info::TankType::NORMAL,
                                          .bullet = info::BulletInfo
                                          {
@@ -118,9 +118,9 @@ namespace czh::game
       g::next_id,
       new tank::AutoTank(
         info::TankInfo{
+          .id = g::next_id,
           .max_hp = static_cast<int>(11 - lvl) * 150,
           .name = "AutoTank " + std::to_string(g::next_id),
-          .id = g::next_id,
           .gap = static_cast<int>(10 - lvl),
           .type = info::TankType::AUTO,
           .bullet = info::BulletInfo
@@ -247,37 +247,37 @@ namespace czh::game
         {
           case tank::NormalTankEvent::UP:
             tank->up();
-          break;
+            break;
           case tank::NormalTankEvent::DOWN:
             tank->down();
-          break;
+            break;
           case tank::NormalTankEvent::LEFT:
             tank->left();
-          break;
+            break;
           case tank::NormalTankEvent::RIGHT:
             tank->right();
-          break;
+            break;
           case tank::NormalTankEvent::FIRE:
             tank->fire();
-          break;
+            break;
           case tank::NormalTankEvent::UP_AUTO:
             tank->start_auto_drive(tank::NormalTankEvent::UP);
-          break;
+            break;
           case tank::NormalTankEvent::DOWN_AUTO:
             tank->start_auto_drive(tank::NormalTankEvent::DOWN);
-          break;
+            break;
           case tank::NormalTankEvent::LEFT_AUTO:
             tank->start_auto_drive(tank::NormalTankEvent::LEFT);
-          break;
+            break;
           case tank::NormalTankEvent::RIGHT_AUTO:
             tank->start_auto_drive(tank::NormalTankEvent::RIGHT);
-          break;
+            break;
           case tank::NormalTankEvent::FIRE_AUTO:
             tank->start_auto_drive(tank::NormalTankEvent::FIRE);
-          break;
+            break;
           case tank::NormalTankEvent::AUTO_OFF:
             tank->stop_auto_drive();
-          break;
+            break;
         }
       }
       g::normal_tank_events.clear();

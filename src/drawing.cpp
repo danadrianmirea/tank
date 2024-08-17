@@ -37,8 +37,8 @@ namespace czh::g
   map::Zone visible_zone = {-128, 128, -128, 128};
   drawing::Snapshot snapshot{};
   int fps = 60;
-  drawing::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
-  drawing::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
+  const drawing::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
+  const drawing::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
   std::chrono::steady_clock::time_point last_drawing = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
   drawing::Style style{

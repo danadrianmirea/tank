@@ -21,6 +21,10 @@
 #include <random>
 #include <map>
 
+namespace czh::archive
+{
+  class Archiver;
+}
 namespace czh::tank
 {
   class Tank;
@@ -57,10 +61,10 @@ namespace czh::map
   
   struct Zone // [X min, X max)   [Y min, Y max)
   {
-    int x_min;
-    int x_max;
-    int y_min;
-    int y_max;
+    int x_min{0};
+    int x_max{0};
+    int y_min{0};
+    int y_max{0};
     
     [[nodiscard]] bool contains(int i, int j) const;
     
@@ -70,11 +74,12 @@ namespace czh::map
   };
   
   class Map;
+  class Point;
   
   class Point
   {
+    friend class archive::Archiver;
     friend class Map;
-  
   private:
     bool generated;
     bool temporary;
@@ -118,6 +123,7 @@ namespace czh::map
   
   class Map
   {
+    friend class archive::Archiver;
   private:
     std::map<Pos, Point> map;
   public:

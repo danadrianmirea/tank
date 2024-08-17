@@ -18,33 +18,20 @@
 #include "info.h"
 #include "game_map.h"
 
+namespace czh::archive
+{
+  class Archiver;
+}
+
 namespace czh::bullet
 {
-  struct BulletData
-  {
-    map::Pos pos;
-    map::Direction direction{map::Direction::END};
-    std::size_t from_tank_id{0};
-    info::BulletInfo info{};
-  };
-
-  class Bullet;
-
-  Bullet* build_bullet(const BulletData& data);
-
-  BulletData get_bullet_data(const Bullet*);
-
-
   class Bullet
   {
-    friend Bullet* build_bullet(const BulletData& data);
-
-    friend BulletData get_bullet_data(const Bullet*);
-
+    friend class archive::Archiver;
   private:
     map::Pos pos;
     map::Direction direction;
-    std::size_t from_tank_id;
+    size_t from_tank_id;
     info::BulletInfo info;
 
   public:
@@ -69,6 +56,8 @@ namespace czh::bullet
     map::Pos& get_pos();
 
     [[nodiscard]] int get_lethality() const;
+
+    [[nodiscard]] size_t get_id() const;
   };
 }
 #endif

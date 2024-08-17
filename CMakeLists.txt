@@ -16,7 +16,8 @@ add_executable(tank
         src/online.cpp
         src/utils.cpp
         src/message.cpp
-        )
+        src/archive.cpp
+)
 if (WIN32)
     target_link_libraries(tank wsock32 ws2_32 Threads::Threads)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

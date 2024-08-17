@@ -35,45 +35,9 @@ namespace czh::tank
     UP, DOWN, LEFT, RIGHT, FIRE, PASS
   };
 
-  struct NormalTankData
-  {
-  };
-
-  struct AutoTankData
-  {
-    std::size_t target_id;
-    std::vector<AutoTankEvent> route;
-    std::size_t route_pos;
-    int gap_count;
-    bool has_good_target;
-  };
-
-  struct TankData
-  {
-    info::TankInfo info;
-    int hp;
-    map::Pos pos;
-    map::Direction direction;
-    bool hascleared;
-
-    std::variant<NormalTankData, AutoTankData> data;
-
-    [[nodiscard]] bool is_auto() const
-    {
-      return data.index() == 1;
-    }
-  };
-
-  Tank* build_tank(const TankData& data);
-
-  TankData get_tank_data(const Tank*);
-
   class Tank
   {
-    friend Tank* build_tank(const TankData& data);
-
-    friend TankData get_tank_data(const Tank*);
-
+    friend class archive::Archiver;
   protected:
     info::TankInfo info;
     int hp;
@@ -139,10 +103,7 @@ namespace czh::tank
 
   class NormalTank : public Tank
   {
-    friend Tank* build_tank(const TankData& data);
-
-    friend TankData get_tank_data(const Tank*);
-
+    friend class archive::Archiver;
   private:
     NormalTankEvent auto_event;
     bool auto_driving;
@@ -179,40 +140,17 @@ namespace czh::tank
 
   AutoTankEvent get_pos_direction(const map::Pos& from, const map::Pos& to);
 
-  class Node
+  struct Node
   {
-  private:
     map::Pos pos;
+    map::Pos dest;
     map::Pos last;
     int G;
-    bool root;
-
-  public:
-    Node() : G(0), root(false)
-    {
-    }
-
-    Node(map::Pos pos_, int G_, const map::Pos& last_, bool root_ = false)
-      : pos(pos_), last(last_), G(G_), root(root_)
-    {
-    }
-
-    Node(const Node& node) = default;
-
-    [[nodiscard]] int get_F(const map::Pos& dest) const;
-
-    int& get_G();
-
-    map::Pos& get_last();
-
-    [[nodiscard]] const map::Pos& get_pos() const;
-
-    [[nodiscard]] bool is_root() const;
+    int F;
 
     [[nodiscard]] std::vector<Node> get_neighbors() const;
-
   private:
-    static bool check(const map::Pos& pos);
+    Node make_next(const map::Pos& p) const;
   };
 
   bool operator<(const Node& n1, const Node& n2);
@@ -221,10 +159,7 @@ namespace czh::tank
 
   class AutoTank : public Tank
   {
-    friend Tank* build_tank(const TankData& data);
-
-    friend TankData get_tank_data(const Tank*);
-
+    friend class archive::Archiver;
   private:
     std::size_t target_id;
 
@@ -238,8 +173,7 @@ namespace czh::tank
   public:
     AutoTank(const info::TankInfo& info_, map::Pos pos_)
       : Tank(info_, pos_), target_id(0), route_pos(0), gap_count(0), has_good_target(false)
-    {
-    }
+    {}
 
     ~AutoTank() override = default;
 

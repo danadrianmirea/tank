@@ -15,9 +15,12 @@
 #include "tank/game.h"
 #include "tank/term.h"
 #include "tank/utils.h"
+#include "tank/archive.h"
+#include "tank/serialization.h"
 #include "tank/command.h"
 #include <string>
 #include <vector>
+#include <fstream>
 #include <mutex>
 #include <set>
 #include <iterator>
@@ -227,7 +230,9 @@ namespace czh::g
     {"pause", "** No arguments **", {}},
     {"continue", "** No arguments **", {}},
     {"quit", "** No arguments **", {}},
-    {"status", "** No arguments **", {}}
+    {"status", "** No arguments **", {}},
+    {"save", "[filename, string]", {}},
+    {"load", "[filename, string]", {}}
   };
 }
 
@@ -545,7 +550,7 @@ namespace czh::cmd
     {
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
-      if(g::curr_page == g::Page::STATUS)
+      if (g::curr_page == g::Page::STATUS)
         g::output_inited = false;
       if (call.args.empty())
       {
@@ -840,6 +845,59 @@ namespace czh::cmd
         msg::info(user_id, "Message sent.");
       else
         msg::info(user_id, "Failed sending message.");
+    }
+    else if(call.is("save"))
+    {
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::string filename;
+      if (auto v = call.get_if(
+        [](std::string fn) { return g::game_mode == g::GameMode::NATIVE; }); v)
+      {
+        std::tie(filename) = *v;
+      }
+      else goto invalid_args;
+
+      std::ofstream out(filename, std::ios::binary);
+      if(!out.good())
+      {
+        msg::error(user_id, "Failed to open '" + filename + "'.");
+        return;
+      }
+
+      auto archive = ser::serialize(archive::archive());
+      out.write(archive.c_str(), archive.size());
+      out.close();
+      msg::info(user_id, "Saved to '" + filename + "'.");
+    }
+    else if(call.is("load"))
+    {
+      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::string filename;
+      if (auto v = call.get_if(
+        [](std::string fn) { return g::game_mode == g::GameMode::NATIVE; }); v)
+      {
+        std::tie(filename) = *v;
+      }
+      else goto invalid_args;
+
+      std::ifstream in(filename, std::ios::binary);
+      if(!in.good())
+      {
+        msg::error(user_id, "Failed to open '" + filename + "'.");
+        return;
+      }
+      std::string tmp;
+      in.seekg(0, std::ios::end);
+      auto length = in.tellg();
+      in.seekg(0, std::ios::beg);
+      tmp.resize(length);
+      in.read(tmp.data(), length);
+      in.close();
+      archive::load(ser::deserialize<archive::Archive>(tmp));
+      g::output_inited = false;
+      msg::info(user_id, "Loaded from '" + filename + "'.");
     }
     else
     {

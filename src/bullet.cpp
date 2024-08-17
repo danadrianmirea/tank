@@ -127,20 +127,8 @@ namespace czh::bullet
     return info.lethality;
   }
 
-  Bullet* build_bullet(const BulletData& data)
+  [[nodiscard]] size_t Bullet::get_id() const
   {
-    auto ret = new Bullet(data.info, data.from_tank_id, data.pos, data.direction);
-    return ret;
-  }
-
-  BulletData get_bullet_data(const Bullet* b)
-  {
-    return BulletData
-    {
-      .pos = b->pos,
-      .direction = b->direction,
-      .from_tank_id = b->from_tank_id,
-      .info = b->info
-    };
+    return info.id;
   }
 }
