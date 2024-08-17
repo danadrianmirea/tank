@@ -545,6 +545,12 @@ Command:
   continue
     - Continue.
 
+  save [filename]
+    - Save the game to a file.
+
+  load [filename]
+    - load the game from a file.
+
   fill [Status] [A x,y] [B x,y optional]
     - Status: [0] Empty [1] Wall
     - Fill the area from A to B as the given Status.

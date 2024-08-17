@@ -58,6 +58,14 @@ continue
 
 - 继续游戏。
 
+save [filename]
+
+- 保存游戏。
+
+load [filename]
+
+- 加载存档。
+
 fill [Status] [A x,y] [B x,y optional]
 
 - 状态： [0] 空 [1] 墙

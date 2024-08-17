@@ -44,6 +44,7 @@ help [line]
 - Use 'Enter' to return game.
 
 status
+
 - show Status page.
 
 quit
@@ -57,6 +58,14 @@ pause
 continue
 
 - Continue.
+
+save [filename]
+
+- Save the game to a file.
+
+load [filename]
+
+- load the game from a file.
 
 fill [Status] [A x,y] [B x,y optional]
 
