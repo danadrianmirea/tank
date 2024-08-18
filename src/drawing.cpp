@@ -200,7 +200,6 @@ namespace czh::drawing
 
   std::string colorify_text(size_t id, const std::string& str)
   {
-    std::string ret = "\033[38;5;";
     int color;
     if (id == 0)
     {
@@ -215,7 +214,6 @@ namespace czh::drawing
 
   std::string colorify_tank(size_t id, const std::string& str)
   {
-    std::string ret = "\033[38;5;";
     int color;
     if (id == 0)
     {

@@ -671,8 +671,12 @@ namespace czh::cmd
         else if (key == "target")
         {
           auto tank = dynamic_cast<tank::AutoTank*>(game::id_at(id));
-          tank->set_target(value);
-          msg::info(user_id, "The target of " + tank->get_name() + " was set to " + std::to_string(value) + ".");
+          auto target = game::id_at(value);
+          int ret = tank->set_target(value);
+          if(ret == 0)
+            msg::info(user_id, "The target of " + tank->get_name() + " was set to " + target->get_name() + ".");
+          else
+            msg::info(user_id, "Failed to find route from " + tank->get_name() + " to " + target->get_name() + ".");
           return;
         }
       }

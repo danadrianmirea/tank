@@ -35,6 +35,7 @@ namespace czh::bullet
 }
 namespace czh::map
 {
+  constexpr uint32_t MAP_DIVISION = 72;
   enum class Status
   {
     WALL, TANK, BULLET, END

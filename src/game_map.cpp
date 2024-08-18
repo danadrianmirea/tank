@@ -239,24 +239,10 @@ namespace czh::map
   const Point &generate(const Pos &i, size_t seed)
   {
     constexpr int magic = 9;
-    //   if(i.x / magic == 0 || i. y / magic == 0)
-    //     return g::empty_point;
-    //
-    //   if (i.x % magic != 0 && i.y % magic == 0)
-    //   {
-    //     int a = (i.x / magic) * i.y;
-    //     if(a < 0) a = -a * 2;
-    //     if(seed * a % 7 == 1)
-    //       return g::wall_point;
-    //   }
-    //
-    //   if (i.x % magic == 0 && i.y % magic != 0)
-    //   {
-    //     int a = i.x * (i.y / magic);
-    //     if(a < 0) a = -a * 2;
-    //     if(seed * a % 5 == 1)
-    //       return g::wall_point;
-    //   }
+
+    // divide the map for quicker route finding
+    if(i.x == 0 || i.y == 0 || i.x % MAP_DIVISION == 0 || i.y % MAP_DIVISION == 0)
+      return g::empty_point;
 
     int a = i.x * (i.y / magic);
     if(a < 0) a = -a * 2;

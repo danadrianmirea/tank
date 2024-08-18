@@ -155,7 +155,10 @@ namespace czh::tank
 
   bool operator<(const Node& n1, const Node& n2);
 
-  bool is_fire_spot(int range, const map::Pos& pos, const map::Pos& target_pos);
+  bool is_fire_spot(int range, const map::Pos& pos, const map::Pos& target_pos, bool curr_at_pos);
+
+  std::vector<map::Pos> find_route_between(map::Pos src, map::Pos dest,
+    const std::function<bool(const map::Pos&)>& pred);
 
   class AutoTank : public Tank
   {
@@ -177,7 +180,7 @@ namespace czh::tank
 
     ~AutoTank() override = default;
 
-    void set_target(std::size_t id);
+    int set_target(std::size_t id);
 
     bool is_target_good() const;
 
