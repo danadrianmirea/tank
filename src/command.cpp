@@ -241,8 +241,7 @@ namespace czh::g
     {"quit", "** No arguments **", {}},
     {"status", "** No arguments **", {}},
     {"save", "[filename, string]", {}},
-    {
-      "load", "[filename, string]", {}}
+    {"load", "[filename, string]", {}}
   };
 }
 
@@ -304,7 +303,9 @@ namespace czh::cmd
     {
       if (g::remote_cmds.find(call.name) != g::remote_cmds.end())
       {
-        g::online_client.run_command(str);
+        int ret = g::online_client.run_command(str);
+        if (ret != 0)
+          msg::error(user_id, "Failed to run command on server.");
         return;
       }
     }
@@ -314,9 +315,9 @@ namespace czh::cmd
       if (call.args.empty())
         g::help_lineno = 1;
       else if (auto v = call.get_if(
-        [](int i)
+        [&call](int i)
         {
-          return i >= 1 && i < g::help_text.size();
+          return call.assert(i >= 1 && i < g::help_text.size(), "Page out of range");
         }); v)
       {
         int i = std::get<0>(*v);
@@ -377,13 +378,19 @@ namespace czh::cmd
       int to_x;
       int to_y;
       int is_wall = 0;
-      if (auto v = call.get_if([](int w, int, int) { return w == 0 || w == 1; }); v)
+      if (auto v = call.get_if([&call](int w, int, int)
+      {
+        return call.assert(w == 0 || w == 1, "Invalid status.([0] Empty [1] Wall)");
+      }); v)
       {
         std::tie(is_wall, from_x, from_y) = *v;
         to_x = from_x;
         to_y = from_y;
       }
-      else if (auto v = call.get_if([](int w, int, int, int, int) { return w == 0 || w == 1; }); v)
+      else if (auto v = call.get_if([&call](int w, int, int, int, int)
+      {
+        return call.assert(w == 0 || w == 1, "Invalid status.([0] Empty [1] Wall)");
+      }); v)
       {
         std::tie(is_wall, from_x, from_y, to_x, to_y) = *v;
       }
@@ -440,33 +447,40 @@ namespace czh::cmd
       };
 
       if (auto v = call.get_if(
-        [](int id, int to_id)
+        [&call](int id, int to_id)
         {
-          return utils::is_alive_id(id) && utils::is_alive_id(to_id);
+          return call.assert(utils::is_alive_id(id) && utils::is_alive_id(to_id),
+                             "Both tank shall be alive.");
         }); v)
       {
         int to_id;
         std::tie(id, to_id) = *v;
 
         auto pos = game::id_at(to_id)->get_pos();
-        map::Pos pos_up(pos.x, pos.y + 1);
-        map::Pos pos_down(pos.x, pos.y - 1);
-        map::Pos pos_left(pos.x - 1, pos.y);
-        map::Pos pos_right(pos.x + 1, pos.y);
-        if (check(pos_up))
-          to_pos = pos_up;
-        else if (check(pos_down))
-          to_pos = pos_down;
-        else if (check(pos_left))
-          to_pos = pos_left;
-        else if (check(pos_right))
-          to_pos = pos_right;
-        else goto invalid_args;
+        std::vector<map::Pos> avail;
+        for (int x = pos.x - 3; x < pos.x + 3; ++x)
+        {
+          for (int y = pos.y - 3; y < pos.y + 3; ++y)
+          {
+            if (check({x, y}))
+              avail.emplace_back(x, y);
+          }
+        }
+        if (avail.empty())
+        {
+          call.error.emplace_back("Target tank has no space around.");
+          goto invalid_args;
+        }
+        else if (avail.size() == 1)
+          to_pos = avail[0];
+        else
+          to_pos = avail[utils::randnum<size_t>(0, avail.size())];
       }
       else if (auto v = call.get_if(
-        [&check](int id, int x, int y)
+        [&check, &call](int id, int x, int y)
         {
-          return utils::is_alive_id(id) && check(map::Pos(x, y));
+          return call.assert(utils::is_alive_id(id), "Tank shall be alive.")
+                 && call.assert(check(map::Pos(x, y)), "Target pos is not available.");
         }); v)
       {
         std::tie(id, to_pos.x, to_pos.y) = *v;
@@ -493,7 +507,10 @@ namespace czh::cmd
         msg::info(user_id, "Revived all tanks.");
         return;
       }
-      else if (auto v = call.get_if([](int id) { return utils::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([&call](int id)
+      {
+        return call.assert(utils::is_valid_id(id), "Invalid ID.");
+      }); v)
       {
         std::tie(id) = *v;
       }
@@ -507,9 +524,10 @@ namespace czh::cmd
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       int num, lvl;
       if (auto v = call.get_if(
-        [](int num, int lvl)
+        [&call](int num, int lvl)
         {
-          return num > 0 && lvl <= 10 && lvl >= 1;
+          return call.assert(num > 0, "Invalid number.(> 0)")
+                 && call.assert(lvl <= 10 && lvl >= 1, "Invalid lvl. (1 <= lvl <= 10)");
         }); v)
       {
         std::tie(num, lvl) = *v;
@@ -524,7 +542,10 @@ namespace czh::cmd
     else if (call.is("observe"))
     {
       int id;
-      if (auto v = call.get_if([](int id) { return g::snapshot.tanks.find(id) != g::snapshot.tanks.end(); }); v)
+      if (auto v = call.get_if([&call](int id)
+      {
+        return call.assert(g::snapshot.tanks.find(id) != g::snapshot.tanks.end(), "Invalid ID.");
+      }); v)
       {
         std::tie(id) = *v;
       }
@@ -545,7 +566,10 @@ namespace czh::cmd
         game::clear_death();
         msg::info(user_id, "Killed all tanks.");
       }
-      else if (auto v = call.get_if([](int id) { return utils::is_valid_id(id); }); v)
+      else if (auto v = call.get_if([&call](int id)
+      {
+        return call.assert(utils::is_valid_id(id), "Invalid ID.");
+      }); v)
       {
         auto [id] = *v;
         auto t = game::id_at(id);
@@ -592,7 +616,10 @@ namespace czh::cmd
         }
         msg::info(user_id, "Cleared all tanks.");
       }
-      else if (auto v = call.get_if([](std::string f) { return f == "death"; }); v)
+      else if (auto v = call.get_if([&call](std::string f)
+      {
+        return call.assert(f == "death", "Invalid option.");
+      }); v)
       {
         for (auto& r : g::bullets)
         {
@@ -625,7 +652,11 @@ namespace czh::cmd
         msg::info(user_id, "Cleared all died tanks.");
       }
       else if (auto v = call.get_if(
-        [](int id) { return utils::is_valid_id(id) && game::id_at(id)->is_auto(); }); v)
+        [&call](int id)
+        {
+          return call.assert(utils::is_valid_id(id), "Invalid ID.") &&
+                 call.assert(game::id_at(id)->is_auto(), "User's Tank can not be cleared.");
+        }); v)
       {
         auto [id] = *v;
         for (auto& r : g::bullets)
@@ -649,15 +680,31 @@ namespace czh::cmd
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [](int id, std::string key, int value)
+        [&call](int id, std::string key, int value)
         {
-          if (!utils::is_valid_id(id)) return false;
+          if (!utils::is_valid_id(id))
+          {
+            call.error.emplace_back("Invalid ID.");
+            return false;
+          }
           auto t = game::id_at(id);
-          return utils::is_valid_id(id) &&
-                 ((key == "max_hp" && value > 0)
-                  || (key == "hp" && value > 0 && value <= t->get_max_hp())
-                  || (key == "target" && t->is_auto() && t->is_alive()
-                      && utils::is_valid_id(value) && value != id && game::id_at(value)->is_alive()));
+          if (key == "max_hp")
+            return call.assert(value > 0, "Invalid value. (Max HP > 0)");
+          else if (key == "hp")
+            return call.assert(value > 0 && value <= t->get_max_hp(), "Invalid value. (0 < HP <= Max HP)");
+          else if (key == "target")
+          {
+            return call.assert(t->is_auto(), "Only AutoTank has target.")
+                   && call.assert(t->is_alive(), "The tank shall be alive.")
+                   && call.assert(utils::is_valid_id(value), "Invalid target id.")
+                   && call.assert(value != id, "Can not set one as a target of itself.")
+                   && call.assert(game::id_at(value)->is_alive(), "Target shall be alive.");
+          }
+          else
+          {
+            call.error.emplace_back("Invalid option.");
+            return false;
+          }
         }); v)
       {
         auto [id, key, value] = *v;
@@ -690,7 +737,11 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [](int id, std::string key, std::string value) { return utils::is_valid_id(id) && key == "name"; }); v)
+        [&call](int id, std::string key, std::string value)
+        {
+          return call.assert(utils::is_valid_id(id), "Invalid ID.")
+                 && call.assert(key == "name", "Invalid option.");
+        }); v)
       {
         auto [id, key, value] = *v;
         if (key == "name")
@@ -702,12 +753,21 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [](std::string key, int arg)
+        [&call](std::string key, int arg)
         {
-          return (key == "tick" && arg > 0)
-                 || (key == "seed")
-                 || (key == "msgTTL" && arg > 0)
-                 || (key == "longPressTH" && arg > 0);
+          if (key == "tick")
+            return call.assert(arg > 0, "Tick shall > 0.");
+          else if (key == "seed")
+            return true;
+          else if (key == "msgTTL")
+            return call.assert(arg > 0, "MsgTTL shall > 0.");
+          else if (key == "longPressTH")
+            return call.assert(arg > 0, "LongPressTH shall > 0.");
+          else
+          {
+            call.error.emplace_back("Invalid option");
+            return false;
+          }
         }); v)
       {
         auto [option, arg] = *v;
@@ -734,18 +794,13 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [](std::string key, bool arg)
+        [&call, &user_id](std::string key, bool arg)
         {
-          return key == "unsafe";
+          return call.assert(key == "unsafe", "Invalid option.")
+          && call.assert(g::unsafe_mode || user_id == g::user_id,
+            "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
-        if (!g::unsafe_mode && user_id != g::user_id)
-        {
-          msg::error(user_id,
-                     "This command can only be executed by the server itself. (see '/help' for a workaround)");
-          return;
-        }
-
         auto [option, arg] = *v;
         g::unsafe_mode = arg;
         if (arg)
@@ -754,10 +809,17 @@ namespace czh::cmd
           msg::info(user_id, "Unsafe mode disbaled.");
       }
       else if (auto v = call.get_if(
-        [](int id, std::string f, std::string key, int value)
+        [&call](int id, std::string f, std::string key, int value)
         {
-          return utils::is_valid_id(id) && f == "bullet"
-                 && (key == "hp" || key == "lethality" || key == "range");
+          bool ok = call.assert(utils::is_valid_id(id), "Invalid ID.")
+                    && call.assert(f == "bullet" && (key == "hp" || key == "lethality" || key == "range"),
+                                   "Invalid option");
+          if (ok && key == "range" && value <= 0)
+          {
+            call.error.emplace_back("Range shall > 0.");
+            return false;
+          }
+          return ok;
         }); v)
       {
         auto [id, bulletstr, key, value] = *v;
@@ -788,9 +850,11 @@ namespace czh::cmd
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       //std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [](std::string key, int port)
+        [&call](std::string key, int port)
         {
-          return g::game_mode == g::GameMode::NATIVE && key == "start" && utils::is_port(port);
+          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to start server mode.")
+                 && call.assert(key == "start", "Invalid option")
+                 && call.assert(utils::is_port(port), "Invalid port.");
         }); v)
       {
         auto [s, port] = *v;
@@ -800,9 +864,10 @@ namespace czh::cmd
         msg::info(user_id, "Server started at " + std::to_string(port));
       }
       else if (auto v = call.get_if(
-        [](std::string key)
+        [&call](std::string key)
         {
-          return g::game_mode == g::GameMode::SERVER && key == "stop";
+          return call.assert(g::game_mode == g::GameMode::SERVER, "Invalid request to stop server mode.")
+                 && call.assert(key == "stop", "Invalid option.");
         }); v)
       {
         g::online_server.stop();
@@ -825,9 +890,11 @@ namespace czh::cmd
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [](std::string ip, int port)
+        [&call](std::string ip, int port)
         {
-          return g::game_mode == g::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port);
+          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
+                 && call.assert(utils::is_ip(ip), "Invalid IP.")
+                 && call.assert(utils::is_port(port), "Invalid port.");
         }); v)
       {
         auto [ip, port] = *v;
@@ -844,10 +911,13 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [](std::string ip, int port, std::string f, int id)
+        [&call](std::string ip, int port, std::string f, int id)
         {
-          return g::game_mode == g::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port)
-                 && f == "as" && id >= 0;
+          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
+                 && call.assert(utils::is_ip(ip), "Invalid IP.")
+                 && call.assert(utils::is_port(port), "Invalid port.")
+                 && call.assert(f == "as", "Invalid option")
+                 && call.assert(id >= 0, "Invalid ID.");
         }); v)
       {
         auto [ip, port, f, id] = *v;
@@ -867,7 +937,12 @@ namespace czh::cmd
     }
     else if (call.is("disconnect"))
     {
-      if (g::game_mode == g::GameMode::CLIENT && call.args.empty())
+      if(g::game_mode != g::GameMode::CLIENT)
+      {
+        call.error.emplace_back("Invalid request to disconnect.");
+        goto invalid_args;
+      }
+      if (call.args.empty())
       {
         g::online_client.disconnect();
         g::game_mode = g::GameMode::NATIVE;
@@ -883,7 +958,10 @@ namespace czh::cmd
       int id = -1;
       std::string msg;
       if (auto v = call.get_if(
-        [](int id, std::string msg) { return utils::is_valid_id(id); }); v)
+        [&call](int id, std::string msg)
+        {
+          return call.assert(utils::is_valid_id(id), "Invalid ID.");
+        }); v)
       {
         std::tie(id, msg) = *v;
       }
@@ -904,18 +982,15 @@ namespace czh::cmd
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [](std::string fn) { return true; }); v)
+        [&call, &user_id](std::string fn)
+        {
+          return call.assert(g::unsafe_mode || user_id == g::user_id,
+            "This command can only be executed by the server itself. (see '/help' for a workaround)");
+        }); v)
       {
         std::tie(filename) = *v;
       }
       else goto invalid_args;
-
-      if (!g::unsafe_mode && user_id != g::user_id)
-      {
-        msg::error(user_id,
-                   "This command can only be executed by the server itself. (see '/help' for a workaround)");
-        return;
-      }
 
       std::ofstream out(filename, std::ios::binary);
       if (!out.good())
@@ -935,18 +1010,15 @@ namespace czh::cmd
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [](std::string fn) { return true; }); v)
+        [&call, &user_id](std::string fn)
+        {
+          return call.assert(g::unsafe_mode || user_id == g::user_id,
+            "This command can only be executed by the server itself. (see '/help' for a workaround)");
+        }); v)
       {
         std::tie(filename) = *v;
       }
       else goto invalid_args;
-
-      if (!g::unsafe_mode && user_id != g::user_id)
-      {
-        msg::error(user_id,
-                   "This command can only be executed by the server itself. (see '/help' for a workaround)");
-        return;
-      }
 
       std::ifstream in(filename, std::ios::binary);
       if (!in.good())
@@ -973,12 +1045,19 @@ namespace czh::cmd
 
     return;
   invalid_args:
-    auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
-                           [&call](auto&& f) { return f.cmd == call.name; });
-    if (it != g::commands.end())
-      msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
+    if(!call.error.empty())
+    {
+      for(auto& r : call.error)
+        msg::error(user_id, r);
+    }
     else[[unlikely]]
-        msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
-    return;
+    {
+      auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
+                            [&call](auto&& f) { return f.cmd == call.name; });
+      if (it != g::commands.end())
+        msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
+      else[[unlikely]]
+          msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
+    }
   }
 }

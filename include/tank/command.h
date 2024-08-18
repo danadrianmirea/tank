@@ -150,6 +150,7 @@ namespace czh::cmd
   {
     std::string name;
     std::vector<details::Arg> args;
+    std::vector<std::string> error;
 
     [[nodiscard]] bool is(const std::string &n) const
     {
@@ -163,6 +164,13 @@ namespace czh::cmd
       return check(std::function(std::forward<Func>(r)))
                ? std::make_optional(args_get<details::get_func_args_t<FuncType> >(args))
                : std::nullopt;
+    }
+
+    bool assert(bool a, const std::string& err)
+    {
+      if(!a)
+        error.emplace_back(err);
+      return a;
     }
 
   private:
