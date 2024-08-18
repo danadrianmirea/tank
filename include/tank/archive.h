@@ -81,6 +81,7 @@ namespace czh::archive
     // command
     std::vector<std::string> history;
     long long_pressing_threshold;
+    bool unsafe_mode;
     // drawing
     size_t tank_focus;
     drawing::Style style;

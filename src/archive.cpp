@@ -164,6 +164,7 @@ namespace czh::archive
       .seed = g::seed,
       .history = g::history,
       .long_pressing_threshold = g::long_pressing_threshold,
+      .unsafe_mode = g::unsafe_mode,
       .tank_focus = g::tank_focus,
       .style = g::style
     };
@@ -185,6 +186,7 @@ namespace czh::archive
     g::seed = archive.seed;
     g::history = archive.history;
     g::long_pressing_threshold = archive.long_pressing_threshold;
+    g::unsafe_mode = archive.unsafe_mode;
     g::tank_focus = archive.tank_focus;
     g::style = archive.style;
 

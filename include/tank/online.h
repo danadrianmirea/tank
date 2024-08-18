@@ -255,6 +255,8 @@ namespace czh::online
 
     std::optional<size_t> connect(const std::string& addr_, int port_);
 
+    int reconnect(const std::string& addr_, int port_, size_t id);
+
     void disconnect();
 
     int tank_react(tank::NormalTankEvent e) const;

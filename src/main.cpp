@@ -85,9 +85,6 @@ int main()
             msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
             g::tanks[r]->kill();
             g::tanks[r]->clear();
-            delete g::tanks[r];
-            g::tanks.erase(r);
-            g::userdata.erase(r);
             if (g::curr_page == g::Page::STATUS)
               g::output_inited = false;
           }

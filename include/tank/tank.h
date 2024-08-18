@@ -32,7 +32,7 @@ namespace czh::tank
 
   enum class AutoTankEvent
   {
-    UP, DOWN, LEFT, RIGHT, FIRE, PASS
+    UP, DOWN, LEFT, RIGHT, FIRE, END
   };
 
   class Tank

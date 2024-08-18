@@ -53,7 +53,7 @@ namespace czh::cmd
 
   namespace details
   {
-    using ArgTList = type_list::TypeList<std::string, int, unsigned long long>;
+    using ArgTList = type_list::TypeList<std::string, int, bool>;
     using Arg = decltype(as_variant(ArgTList{}));
 
     template<typename T>

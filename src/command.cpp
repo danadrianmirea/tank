@@ -24,13 +24,19 @@
 #include <mutex>
 #include <set>
 #include <iterator>
+#include <filesystem>
 
 namespace czh::g
 {
   const std::set<std::string> remote_cmds
   {
-    "fill", "tp", "kill", "clear", "summon", "revive", "set", "tell", "pause", "continue"
+    "fill", "tp", "kill", "clear", "summon",
+    "revive", "set", "tell", "pause", "continue",
+    // unsafe
+    "save", "load"
   };
+
+  bool unsafe_mode{false};
 
   cmd::HintProvider fixed_provider(const cmd::Hints& hints, const std::string& cond = "")
   {
@@ -166,7 +172,8 @@ namespace czh::g
         // Arg 0: ID or Game setting fields
         concat(fixed_provider({
                  {"tick", true}, {"seed", true},
-                 {"msgTTL", true}, {"longPressTH", true}
+                 {"msgTTL", true}, {"longPressTH", true},
+                 {"unsafe", true}
                }), valid_id_provider()),
         // Arg 1: Tank setting fields or Game setting's value
         [](const std::string& last_arg)
@@ -179,6 +186,8 @@ namespace czh::g
             return cmd::Hints{{"[TTL, int, milliseconds]", false}};
           else if (last_arg == "longPressTH")
             return cmd::Hints{{"[Threshold, int, microseconds]", false}};
+          else if (last_arg == "unsafe")
+            return cmd::Hints{{"[bool]", false}, {"true", true}, {"false", true}};
           else // Tank's
           {
             if (utils::is_valid_id(last_arg))
@@ -232,7 +241,8 @@ namespace czh::g
     {"quit", "** No arguments **", {}},
     {"status", "** No arguments **", {}},
     {"save", "[filename, string]", {}},
-    {"load", "[filename, string]", {}}
+    {
+      "load", "[filename, string]", {}}
   };
 }
 
@@ -279,10 +289,9 @@ namespace czh::cmd
           else
             args.emplace_back(temp);
         }
-        else
-        {
-          args.emplace_back(temp);
-        }
+        else if (temp == "true") args.emplace_back(true);
+        else if (temp == "false") args.emplace_back(false);
+        else args.emplace_back(temp);
       }
     }
     return CmdCall{.name = name, .args = args};
@@ -673,7 +682,7 @@ namespace czh::cmd
           auto tank = dynamic_cast<tank::AutoTank*>(game::id_at(id));
           auto target = game::id_at(value);
           int ret = tank->set_target(value);
-          if(ret == 0)
+          if (ret == 0)
             msg::info(user_id, "The target of " + tank->get_name() + " was set to " + target->get_name() + ".");
           else
             msg::info(user_id, "Failed to find route from " + tank->get_name() + " to " + target->get_name() + ".");
@@ -725,6 +734,26 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
+        [](std::string key, bool arg)
+        {
+          return key == "unsafe";
+        }); v)
+      {
+        if (!g::unsafe_mode && user_id != g::user_id)
+        {
+          msg::error(user_id,
+                     "This command can only be executed by the server itself. (see '/help' for a workaround)");
+          return;
+        }
+
+        auto [option, arg] = *v;
+        g::unsafe_mode = arg;
+        if (arg)
+          msg::warn(user_id, "Unsafe mode enabled.");
+        else
+          msg::info(user_id, "Unsafe mode disbaled.");
+      }
+      else if (auto v = call.get_if(
         [](int id, std::string f, std::string key, int value)
         {
           return utils::is_valid_id(id) && f == "bullet"
@@ -742,9 +771,8 @@ namespace czh::cmd
         {
           game::id_at(id)->get_info().bullet.lethality = value;
           msg::info(user_id,
-                    "The lethality of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value)
-                    +
-                    ".");
+                    "The lethality of " + game::id_at(id)->get_name()
+                    + "'s bullet was set to " + std::to_string(value) + ".");
         }
         else if (key == "range")
         {
@@ -815,6 +843,26 @@ namespace czh::cmd
           msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
         }
       }
+      else if (auto v = call.get_if(
+        [](std::string ip, int port, std::string f, int id)
+        {
+          return g::game_mode == g::GameMode::NATIVE && utils::is_ip(ip) && utils::is_port(port)
+                 && f == "as" && id >= 0;
+        }); v)
+      {
+        auto [ip, port, f, id] = *v;
+        g::online_client.init();
+        int try_connect = g::online_client.reconnect(ip, port, id);
+        if (try_connect == 0)
+        {
+          g::game_mode = g::GameMode::CLIENT;
+          g::user_id = static_cast<size_t>(id);
+          g::tank_focus = g::user_id;
+          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id}}};
+          g::output_inited = false;
+          msg::info(user_id, "Reconnected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
+        }
+      }
       else goto invalid_args;
     }
     else if (call.is("disconnect"))
@@ -850,20 +898,27 @@ namespace czh::cmd
       else
         msg::info(user_id, "Failed sending message.");
     }
-    else if(call.is("save"))
+    else if (call.is("save"))
     {
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [](std::string fn) { return g::game_mode == g::GameMode::NATIVE; }); v)
+        [](std::string fn) { return true; }); v)
       {
         std::tie(filename) = *v;
       }
       else goto invalid_args;
 
+      if (!g::unsafe_mode && user_id != g::user_id)
+      {
+        msg::error(user_id,
+                   "This command can only be executed by the server itself. (see '/help' for a workaround)");
+        return;
+      }
+
       std::ofstream out(filename, std::ios::binary);
-      if(!out.good())
+      if (!out.good())
       {
         msg::error(user_id, "Failed to open '" + filename + "'.");
         return;
@@ -874,20 +929,27 @@ namespace czh::cmd
       out.close();
       msg::info(user_id, "Saved to '" + filename + "'.");
     }
-    else if(call.is("load"))
+    else if (call.is("load"))
     {
       std::lock_guard<std::mutex> ml(g::mainloop_mtx);
       std::lock_guard<std::mutex> dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [](std::string fn) { return g::game_mode == g::GameMode::NATIVE; }); v)
+        [](std::string fn) { return true; }); v)
       {
         std::tie(filename) = *v;
       }
       else goto invalid_args;
 
+      if (!g::unsafe_mode && user_id != g::user_id)
+      {
+        msg::error(user_id,
+                   "This command can only be executed by the server itself. (see '/help' for a workaround)");
+        return;
+      }
+
       std::ifstream in(filename, std::ios::binary);
-      if(!in.good())
+      if (!in.good())
       {
         msg::error(user_id, "Failed to open '" + filename + "'.");
         return;

@@ -35,7 +35,9 @@ namespace czh::bullet
 }
 namespace czh::map
 {
-  constexpr uint32_t MAP_DIVISION = 72;
+  // WARNING:
+  // Large MAP_DIVISION will slow down route finding, especially on unreachable point.
+  constexpr uint32_t MAP_DIVISION = 36;
   enum class Status
   {
     WALL, TANK, BULLET, END

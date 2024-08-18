@@ -214,9 +214,11 @@ namespace czh::tank
 
   std::vector<Node> Node::get_neighbors() const
   {
+    if (G > map::MAP_DIVISION * 20) return {};
+
     static auto check = [](const map::Pos& p)
     {
-      return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
+      return !g::game_map.has(map::Status::WALL, p);
     };
     std::vector<Node> ret;
 
@@ -283,15 +285,15 @@ namespace czh::tank
     return true;
   }
 
-  void debug_mark_point(const map::Pos& pos, const std::string& str, int c)
-  {
-    term::move_cursor({
-      static_cast<size_t>((pos.x - g::visible_zone.x_min) * 2),
-      static_cast<size_t>(g::visible_zone.y_max - pos.y - 1)
-    });
-    term::output(utils::color_256_bg(str, c));
-    term::flush();
-  }
+  // void debug_mark_point(const map::Pos& pos, const std::string& str, int c)
+  // {
+  //   term::move_cursor({
+  //     static_cast<size_t>((pos.x - g::visible_zone.x_min) * 2),
+  //     static_cast<size_t>(g::visible_zone.y_max - pos.y - 1)
+  //   });
+  //   term::output(utils::color_256_bg(str, c));
+  //   term::flush();
+  // }
 
   std::vector<map::Pos> find_route_between(map::Pos src, map::Pos dest,
                                            const std::function<bool(const map::Pos&)>& pred)
@@ -459,9 +461,9 @@ namespace czh::tank
       }
 
       auto t1 = find_route_between(pos, transit_src,
-        [&transit_src](const map::Pos& p){return p == transit_src;});
+                                   [&transit_src](const map::Pos& p) { return p == transit_src; });
       auto t2 = find_route_between(transit_dest, dest,
-        [&dest](const map::Pos& p){return p == dest;});
+                                   [&dest](const map::Pos& p) { return p == dest; });
       if (t1.size() < 2 || t2.size() < 2) return -1;
       add_route(t1);
 
@@ -523,50 +525,63 @@ namespace czh::tank
   {
     route.clear();
     route_pos = 0;
-    auto check = [this](map::Pos p)
+    auto check = [this](map::Pos from, map::Pos to)
     {
-      return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
-    };
-    auto p = pos;
-    int i = 0;
-    while (route.size() < 10 && i++ < 10)
-    {
-      map::Pos pos_up(p.x, p.y + 1);
-      map::Pos pos_down(p.x, p.y - 1);
-      map::Pos pos_left(p.x - 1, p.y);
-      map::Pos pos_right(p.x + 1, p.y);
-      switch (utils::randnum<int>(0, 4))
+      if (from.x == to.x)
       {
-        case 0:
-          if (check(pos_up))
-          {
-            p = pos_up;
-            route.insert(route.end(), 5, AutoTankEvent::UP);
-          }
-          break;
-        case 1:
-          if (check(pos_down))
-          {
-            p = pos_down;
-            route.insert(route.end(), 5, AutoTankEvent::DOWN);
-          }
-          break;
-        case 2:
-          if (check(pos_left))
-          {
-            p = pos_left;
-            route.insert(route.end(), 5, AutoTankEvent::LEFT);
-          }
-          break;
-        case 3:
-          if (check(pos_right))
-          {
-            p = pos_right;
-            route.insert(route.end(), 5, AutoTankEvent::RIGHT);
-          }
-          break;
+        if (from.y > to.y)
+          std::swap(from, to);
+        for (int i = from.y; i <= to.y; ++i)
+        {
+          map::Pos p{from.x, i};
+          if (g::game_map.has(map::Status::WALL, p) || g::game_map.has(map::Status::TANK, p))
+            return false;
+        }
+      }
+      else if (from.y == to.y)
+      {
+        if (from.x > to.x)
+          std::swap(from, to);
+        for (int i = from.x; i <= to.x; ++i)
+        {
+          map::Pos p{i, from.y};
+          if (g::game_map.has(map::Status::WALL, p) || g::game_map.has(map::Status::TANK, p))
+            return false;
+        }
+      }
+      return true;
+    };
+    AutoTankEvent e = AutoTankEvent::END;
+    int sz = 7;
+    while (sz >= 1)
+    {
+      std::vector<AutoTankEvent> avail;
+      if (check({pos.x, pos.y + 1}, {pos.x, pos.y + sz}))
+        avail.emplace_back(AutoTankEvent::UP);
+      if (check({pos.x, pos.y - 1}, {pos.x, pos.y - sz}))
+        avail.emplace_back(AutoTankEvent::DOWN);
+      if (check({pos.x - 1, pos.y}, {pos.x - sz, pos.y}))
+        avail.emplace_back(AutoTankEvent::LEFT);
+      if (check({pos.x + 1, pos.y}, {pos.x + sz, pos.y}))
+        avail.emplace_back(AutoTankEvent::RIGHT);
+      if (avail.empty())
+      {
+        --sz;
+        continue;
+      }
+      else if (avail.size() == 1)
+      {
+        e = avail[0];
+        break;
+      }
+      else
+      {
+        e = avail[utils::randnum<size_t>(0, avail.size())];
+        break;
       }
     }
+    if (e != AutoTankEvent::END)
+      route.insert(route.end(), sz, e);
   }
 
   void AutoTank::attacked(int lethality_)
@@ -667,9 +682,10 @@ namespace czh::tank
         default:
           break;
       }
-      if(ret != 0)
+      if (ret != 0)
       {
         --route_pos;
+        fire();
       }
     }
   }

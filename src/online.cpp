@@ -461,6 +461,10 @@ namespace czh::online
     socket.reset();
   }
 
+  std::string make_request(const std::string& cmd)
+  {
+    return ser::serialize(cmd, ser::serialize(" "));
+  }
 
   template<typename... Args>
   std::string make_request(const std::string& cmd, Args&&... args)
@@ -515,20 +519,15 @@ namespace czh::online
       }
       else if (cmd == "register")
       {
-        auto [port, screen_width, screen_height] =
-            ser::deserialize<int, size_t, size_t>(args);
         std::lock_guard<std::mutex> ml(g::mainloop_mtx);
         std::lock_guard<std::mutex> dl(g::drawing_mtx);
         auto id = game::add_tank();
         g::userdata[id] = g::UserData{
           .user_id = id,
-          .ip = req.get_addr().ip(),
-          .port = port,
-          .screen_width = screen_width,
-          .screen_height = screen_height
+          .ip = req.get_addr().ip()
         };
         g::userdata[id].last_update = std::chrono::steady_clock::now();
-        msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
+        msg::info(-1, req.get_addr().ip() + " registered as " + std::to_string(id));
         res.set_content(make_response(id));
         if (g::curr_page == g::Page::STATUS)
           g::output_inited = false;
@@ -538,12 +537,42 @@ namespace czh::online
         auto id = ser::deserialize<size_t>(args);
         std::lock_guard<std::mutex> ml(g::mainloop_mtx);
         std::lock_guard<std::mutex> dl(g::drawing_mtx);
-        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") disconnected.");
+        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") deregistered.");
         g::tanks[id]->kill();
         g::tanks[id]->clear();
         delete g::tanks[id];
         g::tanks.erase(id);
         g::userdata.erase(id);
+      }
+      else if (cmd == "login")
+      {
+        auto id = ser::deserialize<size_t>(args);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        auto tank = game::id_at(id);
+        if(tank == nullptr || tank->is_auto())
+        {
+          res.set_content(make_response(-1, "No such user."));
+          return;
+        }
+        else if(tank->is_alive())
+        {
+          res.set_content(make_response(-1, "Already logined."));
+          return;
+        }
+        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logined.");
+        game::revive(id);
+        g::userdata[id].last_update = std::chrono::steady_clock::now();
+        res.set_content(make_response(0, "Success."));
+      }
+      else if (cmd == "logout")
+      {
+        auto id = ser::deserialize<size_t>(args);
+        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logout.");
+        g::tanks[id]->kill();
+        g::tanks[id]->clear();
       }
       else if (cmd == "add_auto_tank")
       {
@@ -591,7 +620,7 @@ namespace czh::online
       return std::nullopt;
     }
 
-    std::string content = make_request("register", 8080, g::screen_width, g::screen_height);
+    std::string content = make_request("register");
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
@@ -602,10 +631,37 @@ namespace czh::online
     return id;
   }
 
+  int TankClient::reconnect(const std::string& addr_, int port_, size_t id)
+  {
+    std::lock_guard<std::mutex> l(g::online_mtx);
+    host = addr_;
+    port = port_;
+    if (cli->connect(addr_, port_) != 0)
+    {
+      cli->reset();
+      return -1;
+    }
+
+    std::string content = make_request("login",id);
+    auto res = cli->send_and_recv(content);
+    if(!res.has_value())
+    {
+      cli->reset();
+      return -1;
+    }
+    auto [i, msg] = ser::deserialize<int, std::string>(*res);
+    if(i != 0)
+    {
+      msg::error(g::user_id, msg);
+      return -1;
+    }
+    return 0;
+  }
+
   void TankClient::disconnect()
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = make_request("deregister", g::user_id);
+    std::string content = make_request("logout", g::user_id);
     if (cli->send(content) < 0)
       msg::error(g::user_id, strerror(errno));
     if (cli->disconnect() < 0)

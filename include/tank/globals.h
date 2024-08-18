@@ -42,9 +42,6 @@ namespace czh::g
     std::priority_queue<msg::Message> messages;
     std::chrono::steady_clock::time_point last_update;
     std::string ip;
-    int port;
-    size_t screen_width;
-    size_t screen_height;
   };
 
   enum class GameMode
@@ -96,6 +93,7 @@ namespace czh::g
   // command.cpp
   extern const std::set<std::string> remote_cmds;
   extern const std::vector<cmd::CommandInfo> commands;
+  extern bool unsafe_mode;
 
   // drawing.cpp
   extern bool output_inited;

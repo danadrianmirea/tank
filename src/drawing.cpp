@@ -549,6 +549,9 @@ Command:
   load [filename]
     - load the game from a file.
 
+    Note:
+      Normally save and load can only be executed by the server itself, but you can use 'set unsafe true' to get around it. Notice that it is dangerous to let remote user access to your filesystem.
+
   fill [Status] [A x,y] [B x,y optional]
     - Status: [0] Empty [1] Wall
     - Fill the area from A to B as the given Status.
@@ -602,6 +605,10 @@ Command:
       - threshold (int, microseconds): long pressing threshold.
   set seed [seed]
       - seed (int): the game map's seed.
+  set unsafe [bool]
+      - true or false.
+      WARNING:
+        This will make the remote user accessible to your filesystem (through save, load).
 
   tell [A id optional] [msg]
     - Send a message to A.

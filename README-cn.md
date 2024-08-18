@@ -66,6 +66,11 @@ load [filename]
 
 - 加载存档。
 
+注意:  
+通常，`save` 和 `load` 只能由服主执行，但服主可以使用“set unsafe true”来绕过它。
+请注意，让远程用户访问您的文件系统是很危险的。
+
+
 fill [Status] [A x,y] [B x,y optional]
 
 - 状态： [0] 空 [1] 墙
@@ -135,6 +140,13 @@ set longPressTH [threshold]
 set seed [seed]
 
 - seed (int): 游戏地图的种子。
+
+set unsafe [bool]
+
+- `true` 或 `false`.
+
+警告:
+这将使远程用户能够访问您的文件系统（通过 `save` 和 `load`）。
 
 tell [A id optional] [msg]
 
