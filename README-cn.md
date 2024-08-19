@@ -70,7 +70,6 @@ load [filename]
 通常，`save` 和 `load` 只能由服主执行，但服主可以使用“set unsafe true”来绕过它。
 请注意，让远程用户访问您的文件系统是很危险的。
 
-
 fill [Status] [A x,y] [B x,y optional]
 
 - 状态： [0] 空 [1] 墙
@@ -167,11 +166,12 @@ server stop
 
 - 关闭 Tank 服务器.
 
-connect [ip] [port]
+connect [ip] [port] (as [id])
 
 - 连接到 Tank 服务器。
 - ip(string): 服务器的 IP。
 - port(int): 服务器的端口。
+- id (int, 可选): 登录指定的远程用户。
 
 disconnect
 

@@ -68,7 +68,8 @@ load [filename]
 - load the game from a file.
 
 Note:  
-Normally `save` and `load` can only be executed by the server itself, but you can use 'set unsafe true' to get around it.
+Normally `save` and `load` can only be executed by the server itself, but you can use 'set unsafe true' to get around
+it.
 Notice that it is dangerous to let remote user access to your filesystem.
 
 fill [Status] [A x,y] [B x,y optional]
@@ -170,11 +171,12 @@ server stop
 
 - Stop Tank Server.
 
-connect [ip] [port]
+connect [ip] [port] (as [id])
 
 - Connect to Tank Server.
 - ip (string): the server's IP.
 - port (int): the server's port.
+- id (int, optional): login as the remote user id.
 
 disconnect
 

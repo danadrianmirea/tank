@@ -72,8 +72,9 @@ namespace czh::drawing
 
   struct UserView
   {
-    size_t user_id;
+    size_t user_id{0};
     std::string ip;
+    bool active{false};
   };
 
   struct Snapshot

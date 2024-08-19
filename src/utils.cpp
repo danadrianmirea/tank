@@ -136,6 +136,15 @@ namespace czh::utils
     return escape_code_len(str.cbegin(), str.cend());
   }
 
+  std::string setw(size_t w, std::string s)
+  {
+    auto sz = escape_code_len(s);
+    if(sz >= w)
+      return s;
+    s.insert(s.end(), w - sz, ' ');
+    return s;
+  }
+
   std::string color_256_fg(const std::string& str, int color)
   {
     return "\x1b[38;5;" + std::to_string(color) + "m" + str + "\x1b[0m";

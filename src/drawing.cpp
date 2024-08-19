@@ -192,7 +192,8 @@ namespace czh::drawing
       view[r.first] =
           UserView{
             .user_id = r.second.user_id,
-            .ip = r.second.ip
+            .ip = r.second.ip,
+            .active = r.second.active
           };
     }
     return view;
@@ -503,6 +504,9 @@ namespace czh::drawing
     term::hide_cursor();
     std::lock_guard<std::mutex> l1(g::mainloop_mtx);
     std::lock_guard<std::mutex> l2(g::drawing_mtx);
+
+    static const std::string shadow_beg = "\x1b[48;5;8m";
+    static const std::string shadow_end = "\x1b[49m";
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
@@ -624,10 +628,11 @@ Command:
   server stop
     - Stop Tank Server.
 
-  connect [ip] [port]
+  connect [ip] [port] (as [id])
     - Connect to Tank Server.
     - ip (string): the server's IP.
     - port (int): the server's port.
+    - id (int, optional): login as the remote user id.
 
   disconnect
     - Disconnect from the Server.
@@ -799,6 +804,7 @@ Command:
           term::clear();
           g::output_inited = true;
         }
+
         size_t cursor_y = 0;
 
         // User Status
@@ -820,26 +826,47 @@ Command:
                                           })->second.ip.size();
         if (ip_size == 0) ip_size = 6;
 
+        size_t status_size = 7;
+
         term::move_cursor({0, cursor_y++});
         term::output(std::left,
                      std::setw(static_cast<int>(user_id_size)), "ID", "  ",
-                     std::setw(static_cast<int>(ip_size)), "IP");
-        for (auto it = g::snapshot.userinfo.begin(); it != g::snapshot.userinfo.end(); ++it)
+                     std::setw(static_cast<int>(ip_size)), "IP", "  ",
+                     std::setw(static_cast<int>(status_size)), "Status");
+
+        size_t i = 0;
+        auto is_active_user_item = [&i] {return i == g::status_lineno - 1;};
+        for (;i < g::snapshot.userinfo.size(); ++i)
         {
-          auto tank = it->second;
+          auto user = g::snapshot.userinfo[i];
           term::move_cursor({0, cursor_y++});
-          if (cursor_y == g::status_lineno - 1)
-            term::output("\x1b[48;5;8m");
+          if (is_active_user_item())
+            term::output(shadow_beg);
 
-          term::output(std::left, std::setw(static_cast<int>(user_id_size)), it->second.user_id, "  ");
-          if (it->second.ip.empty())
-            term::output(std::left, std::setw(static_cast<int>(ip_size)), "Native");
+          term::output(std::left, std::setw(static_cast<int>(user_id_size)), user.user_id, "  ");
+          if (user.ip.empty())
+          {
+            term::output(std::left, std::setw(static_cast<int>(ip_size)), "Native", "  ",
+                         std::setw(static_cast<int>(status_size)), "Native");
+          }
           else
-            term::output(std::left, std::setw(static_cast<int>(ip_size)), it->second.ip);
-          if (cursor_y == g::status_lineno - 1)
-            term::output("\x1b[49m");
-        }
+          {
+            term::output(std::left, std::setw(static_cast<int>(ip_size)), user.ip, "  ");
+            std::string status_str;
+            if (user.active)
+              status_str = utils::color_256_fg("Online", 2);
+            else
+              status_str = utils::color_256_fg("Offline", 9);
 
+            if(is_active_user_item())
+              status_str += shadow_beg;
+
+            term::output(std::left, utils::setw(status_size, status_str));
+          }
+
+          if (is_active_user_item())
+            term::output(shadow_end);
+        }
 
         // Tank Status
         term::mvoutput({g::screen_width / 2 - 5, cursor_y++}, "Tank Status");
@@ -894,36 +921,61 @@ Command:
                      std::setw(static_cast<int>(gap_size)), "Gap", "  ",
                      std::setw(static_cast<int>(target_size)), "Target", "  ");
 
-        if (g::status_lineno > g::snapshot.tanks.size()) g::status_lineno = 1;
+        if (g::status_lineno > g::snapshot.tanks.size() + g::snapshot.userinfo.size())
+          g::status_lineno = 1;
 
         size_t display_height = g::screen_height - g::snapshot.userinfo.size() - 6;
+
+        size_t content_pos = 0;
+        if(g::status_lineno - 1 >= g::snapshot.userinfo.size())
+          content_pos = g::status_lineno - 1 - g::snapshot.userinfo.size();
+
         auto [beg, end] = get_display_section(display_height,
-                                              g::status_lineno - 1, g::snapshot.tanks.size());
-        size_t i = 0;
-        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end(); ++it, ++i)
+                                              content_pos,
+                                              g::snapshot.tanks.size());
+        size_t j = 0;
+        auto is_active_tank_item = [&j]
         {
-          if (i >= beg && i < end)
+          if(g::status_lineno - 1 <  g::snapshot.userinfo.size())
+            return false;
+          return j == g::status_lineno - 1 - g::snapshot.userinfo.size();
+        };
+        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end(); ++it, ++j)
+        {
+          if (j >= beg && j < end)
           {
             auto tank = it->second;
             term::move_cursor({0, cursor_y++});
-            if (cursor_y == g::status_lineno - 1)
+            if (is_active_tank_item())
             {
-              term::output("\x1b[48;5;8m");
+              term::output(shadow_beg);
             }
             std::string pos_str = utils::contact('(', tank.pos.x,
                                                  ',', std::string(pos_size - get_pos_size(tank.pos) + 1, ' '),
                                                  tank.pos.y, ')');
+
+            std::string tank_str = colorify_text(tank.info.id, tank.info.name);
+            if(is_active_tank_item())
+              tank_str += shadow_beg;
             term::output(std::left,
                          std::setw(static_cast<int>(tank_id_size)), tank.info.id, "  ",
-                         std::setw(static_cast<int>(name_size)), tank.info.name, "  ",
+                         utils::setw(name_size, tank_str), "  ",
                          std::setw(static_cast<int>(pos_size)), pos_str, "  ",
                          std::setw(static_cast<int>(hp_size)), tank.hp, "  ",
                          std::setw(static_cast<int>(atk_size)), tank.info.bullet.lethality, "  ");
             if (tank.is_auto)
             {
               term::output(std::left, std::setw(static_cast<int>(gap_size)), tank.info.gap, "  ");
-              if(tank.has_good_target)
-                term::output(std::left, std::setw(static_cast<int>(target_size)), tank.target_id);
+              if (tank.has_good_target)
+              {
+                std::string target_str = colorify_text(tank.target_id, g::snapshot.tanks[tank.target_id].info.name);
+                if (is_active_tank_item())
+                  target_str += shadow_beg + "(" + std::to_string(tank.target_id) + ")";
+                else
+                  target_str += "(" + std::to_string(tank.target_id) + ")";
+
+                term::output(std::left, utils::setw(target_size, target_str));
+              }
               else
                 term::output(std::left, std::setw(static_cast<int>(target_size)), "-");
             }
@@ -932,9 +984,9 @@ Command:
               term::output(std::left, std::setw(static_cast<int>(gap_size)), "-", "  ",
                            std::setw(static_cast<int>(target_size)), "-");
             }
-            if (cursor_y == g::status_lineno - 1)
+            if (is_active_tank_item())
             {
-              term::output("\x1b[49m");
+              term::output(shadow_end);
             }
           }
         }
@@ -992,8 +1044,8 @@ Command:
           {
             if (i == g::help_lineno - 1)
             {
-              term::mvoutput({0, cursor_y++}, "\x1b[48;5;8m", g::help_text[i],
-                             std::string(g::screen_width - g::help_text[i].size(), ' '), "\x1b[49m");
+              term::mvoutput({0, cursor_y++}, shadow_beg, g::help_text[i],
+                             std::string(g::screen_width - g::help_text[i].size(), ' '), shadow_end);
             }
             else
             {

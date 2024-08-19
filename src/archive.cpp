@@ -156,6 +156,7 @@ namespace czh::archive
   Archive archive()
   {
     Archive ret{
+      .userdata = g::userdata,
       .user_id = g::user_id,
       .next_id = g::next_id,
       .tick = g::tick,
@@ -179,6 +180,7 @@ namespace czh::archive
 
   void load(const Archive& archive)
   {
+    g::userdata = archive.userdata;
     g::user_id = archive.user_id;
     g::next_id = archive.next_id;
     g::tick = archive.tick;

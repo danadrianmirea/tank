@@ -128,7 +128,9 @@ namespace czh::g
     {
       "connect", "[ip] [port]", {
         fixed_provider({{"[ip]", false}}),
-        fixed_provider({{"[port]", false}})
+        fixed_provider({{"[port]", false}}),
+        fixed_provider({{"as", true}}),
+        fixed_provider({{"[remote id]", false}})
       }
     },
     {"disconnect", "** No arguments **", {}},

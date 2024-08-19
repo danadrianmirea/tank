@@ -19,6 +19,7 @@
 #include "bullet.h"
 #include "game_map.h"
 #include "drawing.h"
+#include "globals.h"
 
 #include <chrono>
 
@@ -69,6 +70,7 @@ namespace czh::archive
   struct Archive
   {
     // game setting
+    std::map<size_t, g::UserData> userdata;
     size_t user_id;
     size_t next_id;
     std::chrono::milliseconds tick;

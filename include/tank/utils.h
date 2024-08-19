@@ -182,6 +182,8 @@ namespace czh::utils
     return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
   }
 
+  std::string setw(size_t w, std::string s);
+
   // Xterm 256 color
   // https://www.ditig.com/publications/256-colors-cheat-sheet
   std::string color_256_fg(const std::string& str, int color);

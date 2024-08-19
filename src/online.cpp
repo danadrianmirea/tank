@@ -127,11 +127,13 @@ namespace czh::online
 
   std::string Addr::ip() const
   {
-    std::string str(16, '\0');
 #ifdef _WIN32
+    std::string str(16, '\0');
     str = inet_ntoa(addr.sin_addr);
 #else
-    inet_ntop(AF_INET, &addr.sin_addr, str.data(), len);
+    char buf[16];
+    inet_ntop(AF_INET, &addr.sin_addr, buf, len);
+    std::string str{buf};
 #endif
     return str;
   }
@@ -527,6 +529,7 @@ namespace czh::online
           .ip = req.get_addr().ip()
         };
         g::userdata[id].last_update = std::chrono::steady_clock::now();
+        g::userdata[id].active = true;
         msg::info(-1, req.get_addr().ip() + " registered as " + std::to_string(id));
         res.set_content(make_response(id));
         if (g::curr_page == g::Page::STATUS)
@@ -563,6 +566,7 @@ namespace czh::online
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logined.");
         game::revive(id);
         g::userdata[id].last_update = std::chrono::steady_clock::now();
+        g::userdata[id].active = true;
         res.set_content(make_response(0, "Success."));
       }
       else if (cmd == "logout")
@@ -573,6 +577,7 @@ namespace czh::online
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logout.");
         g::tanks[id]->kill();
         g::tanks[id]->clear();
+        g::userdata[id].active = false;
       }
       else if (cmd == "add_auto_tank")
       {

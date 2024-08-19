@@ -85,6 +85,7 @@ int main()
             msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
             g::tanks[r]->kill();
             g::tanks[r]->clear();
+            g::userdata[r].active = false;
             if (g::curr_page == g::Page::STATUS)
               g::output_inited = false;
           }
@@ -217,7 +218,7 @@ int main()
           }
           break;
         case input::Input::DOWN:
-          if (g::status_lineno < g::snapshot.tanks.size())
+          if (g::status_lineno < g::snapshot.tanks.size() + g::snapshot.userinfo.size())
           {
             g::status_lineno++;
             g::output_inited = false;

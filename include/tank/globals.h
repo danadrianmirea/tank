@@ -37,11 +37,12 @@ namespace czh::g
 {
   struct UserData
   {
-    size_t user_id;
+    size_t user_id{0};
     std::set<map::Pos> map_changes;
     std::priority_queue<msg::Message> messages;
     std::chrono::steady_clock::time_point last_update;
     std::string ip;
+    bool active{false};
   };
 
   enum class GameMode
