@@ -16,6 +16,9 @@
 #include "tank/utils.h"
 #include "tank/term.h"
 #include "tank/drawing.h"
+
+#include <cstring>
+
 #include "tank/globals.h"
 
 #include <mutex>
@@ -31,8 +34,9 @@ namespace czh::g
   std::size_t screen_width = 0;
   size_t tank_focus = 0;
   g::Page curr_page = g::Page::MAIN;
-  size_t help_lineno = 1;
-  size_t status_lineno = 1;
+  size_t help_pos = 0;
+  size_t status_pos = 0;
+  size_t notification_pos = 0;
   std::vector<std::string> help_text;
   map::Zone visible_zone = {-128, 128, -128, 128};
   drawing::Snapshot snapshot{};
@@ -289,7 +293,6 @@ namespace czh::drawing
     return ret;
   }
 
-
   std::set<map::Pos> get_screen_changes(const map::Direction& move)
   {
     std::set<map::Pos> ret;
@@ -498,6 +501,81 @@ namespace czh::drawing
     return {beg, end};
   }
 
+  void flexible_output(const std::string& left, const std::string& right)
+  {
+    int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(left, right));
+    if (a > 0)
+    {
+      term::output(left, std::string(a, ' '), right);
+    }
+    else
+    {
+      int b = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(left));
+      if (b > 0)
+      {
+        term::output(left, std::string(b, ' '));
+      }
+      else
+      {
+        term::output(left.substr(0, static_cast<int>(left.size()) + b));
+      }
+    }
+  }
+
+  std::vector<std::string> fit_into_screen(const std::string& raw)
+  {
+    std::vector<std::string> ret;
+    if (auto width = utils::display_width(raw); width > g::screen_width)
+    {
+      std::string indent, temp;
+      for (auto& i : raw)
+      {
+        if (std::isspace(i))
+          indent += i;
+        else
+          break;
+      }
+      temp = indent;
+      for (size_t i = 0; i < raw.size(); ++i)
+      {
+        if (temp.size() == indent.size() && std::isspace(raw[i]))
+          continue;
+        temp += raw[i];
+        if (utils::display_width(temp) == g::screen_width)
+        {
+          if (i + 1 < raw.size() && std::isalpha(raw[i + 1]) && std::isalpha(raw[i]))
+          {
+            int j = static_cast<int>(i);
+            for (; j >= 0 && !std::isspace(raw[j]); --j)
+            {
+              temp.pop_back();
+            }
+            temp.insert(temp.end(), i - j, ' ');
+            ret.emplace_back(temp);
+            temp = indent;
+            i = j;
+          }
+          else
+          {
+            ret.emplace_back(temp);
+            temp = indent;
+          }
+        }
+      }
+      if (!temp.empty())
+      {
+        ret.emplace_back(temp);
+      }
+    }
+    else
+    {
+      std::string temp = raw;
+      temp.insert(temp.end(), g::screen_width - width, ' ');
+      ret.emplace_back(temp);
+    }
+    return ret;
+  }
+
   void draw()
   {
     if (g::game_suspend) return;
@@ -510,7 +588,6 @@ namespace czh::drawing
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
-      g::help_lineno = 1;
       g::output_inited = false;
       g::screen_height = term::get_height();
       g::screen_width = term::get_width();
@@ -523,7 +600,8 @@ Intro:
 Control:
   Move: WASD or direction keys
   Attack: space
-  Tank Status: 'o' or 'O'
+  Status: 'o' or 'O'
+  Notification: 'i' or 'I'
   Command: '/'
 
 Tank:
@@ -537,6 +615,18 @@ Command:
   help [line]
     - Get this help.
     - Use 'Enter' to return game.
+
+  notification
+    - Show Notification page.
+  notification read
+    - Set all messages as read.
+  notification clear
+    - Clear all messages.
+  notification clear read
+    - Clear read messages.
+
+  status
+    - show Status page.
 
   quit
     - Quit Tank.
@@ -641,55 +731,14 @@ Command:
       g::help_text.clear();
       for (auto& r : raw_lines)
       {
-        if (r.size() > g::screen_width)
+        if (r.size() >= g::screen_width)
         {
-          std::string indent, temp;
-          for (auto& i : r)
-          {
-            if (std::isspace(i))
-            {
-              indent += i;
-            }
-            else
-            {
-              break;
-            }
-          }
-          temp = indent;
-          for (size_t i = 0; i < r.size(); ++i)
-          {
-            if (temp.size() == indent.size() && std::isspace(r[i])) continue;
-            temp += r[i];
-            if (temp.size() == g::screen_width)
-            {
-              if (i + 1 < r.size() && std::isalpha(r[i + 1]) && std::isalpha(r[i]))
-              {
-                int j = static_cast<int>(i);
-                for (; j >= 0 && !std::isspace(r[j]); --j)
-                {
-                  temp.pop_back();
-                }
-                temp.insert(temp.end(), i - j, ' ');
-                g::help_text.emplace_back(temp);
-                temp = indent;
-                i = j;
-              }
-              else
-              {
-                g::help_text.emplace_back(temp);
-                temp = indent;
-              }
-            }
-          }
-          if (!temp.empty())
-          {
-            g::help_text.emplace_back(temp);
-          }
+          auto ret = fit_into_screen(std::string{r});
+          g::help_text.insert(g::help_text.end(),
+                              std::make_move_iterator(ret.begin()), std::make_move_iterator(ret.end()));
         }
         else
-        {
           g::help_text.emplace_back(r);
-        }
       }
     }
     switch (g::curr_page)
@@ -763,38 +812,9 @@ Command:
                            + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
                            + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
                            ")";
-        std::string right = std::to_string(g::fps) + "fps ";
+        std::string right = std::to_string(g::fps) + " fps";
 
-        if (g::delay < 50)
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
-        }
-        else if (g::delay < 100)
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 11);
-        }
-        else
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
-        }
-
-        int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
-        if (a > 0)
-        {
-          term::output(left, std::string(a, ' '), right);
-        }
-        else
-        {
-          int b = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left));
-          if (b > 0)
-          {
-            term::output(left, std::string(b, ' '));
-          }
-          else
-          {
-            term::output(left.substr(0, static_cast<int>(left.size()) + b));
-          }
-        }
+        flexible_output(left, right);
       }
       break;
       case g::Page::STATUS:
@@ -835,8 +855,8 @@ Command:
                      std::setw(static_cast<int>(status_size)), "Status");
 
         size_t i = 0;
-        auto is_active_user_item = [&i] {return i == g::status_lineno - 1;};
-        for (;i < g::snapshot.userinfo.size(); ++i)
+        auto is_active_user_item = [&i] { return i == g::status_pos; };
+        for (; i < g::snapshot.userinfo.size(); ++i)
         {
           auto user = g::snapshot.userinfo[i];
           term::move_cursor({0, cursor_y++});
@@ -858,7 +878,7 @@ Command:
             else
               status_str = utils::color_256_fg("Offline", 9);
 
-            if(is_active_user_item())
+            if (is_active_user_item())
               status_str += shadow_beg;
 
             term::output(std::left, utils::setw(status_size, status_str));
@@ -921,14 +941,14 @@ Command:
                      std::setw(static_cast<int>(gap_size)), "Gap", "  ",
                      std::setw(static_cast<int>(target_size)), "Target", "  ");
 
-        if (g::status_lineno > g::snapshot.tanks.size() + g::snapshot.userinfo.size())
-          g::status_lineno = 1;
+        if (g::status_pos >= g::snapshot.tanks.size() + g::snapshot.userinfo.size())
+          g::status_pos = 0;
 
         size_t display_height = g::screen_height - g::snapshot.userinfo.size() - 6;
 
         size_t content_pos = 0;
-        if(g::status_lineno - 1 >= g::snapshot.userinfo.size())
-          content_pos = g::status_lineno - 1 - g::snapshot.userinfo.size();
+        if (g::status_pos >= g::snapshot.userinfo.size())
+          content_pos = g::status_pos - g::snapshot.userinfo.size();
 
         auto [beg, end] = get_display_section(display_height,
                                               content_pos,
@@ -936,15 +956,15 @@ Command:
         size_t j = 0;
         auto is_active_tank_item = [&j]
         {
-          if(g::status_lineno - 1 <  g::snapshot.userinfo.size())
+          if (g::status_pos < g::snapshot.userinfo.size())
             return false;
-          return j == g::status_lineno - 1 - g::snapshot.userinfo.size();
+          return j == g::status_pos - g::snapshot.userinfo.size();
         };
-        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end(); ++it, ++j)
+        for (; j < g::snapshot.tanks.size(); ++j)
         {
           if (j >= beg && j < end)
           {
-            auto tank = it->second;
+            const auto& tank = g::snapshot.tanks[j];
             term::move_cursor({0, cursor_y++});
             if (is_active_tank_item())
             {
@@ -955,7 +975,7 @@ Command:
                                                  tank.pos.y, ')');
 
             std::string tank_str = colorify_text(tank.info.id, tank.info.name);
-            if(is_active_tank_item())
+            if (is_active_tank_item())
               tank_str += shadow_beg;
             term::output(std::left,
                          std::setw(static_cast<int>(tank_id_size)), tank.info.id, "  ",
@@ -990,7 +1010,7 @@ Command:
             }
           }
         }
-        term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::status_lineno);
+        term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::status_pos + 1);
       }
       break;
       case g::Page::MAIN:
@@ -1032,17 +1052,17 @@ Command:
         if (!g::output_inited)
         {
           term::clear();
-          std::size_t cursor_y = 0;
+          size_t cursor_y = 0;
           term::mvoutput({g::screen_width / 2 - 4, cursor_y++}, "Tank Help");
 
-          if (g::help_lineno > g::help_text.size()) g::help_lineno = 1;
+          if (g::help_pos >= g::help_text.size()) g::help_pos = 0;
 
           auto [beg, end] = get_display_section(g::screen_height - 3,
-                                                g::help_lineno - 1, g::help_text.size());
+                                                g::help_pos, g::help_text.size());
 
           for (size_t i = beg; i < end; ++i)
           {
-            if (i == g::help_lineno - 1)
+            if (i == g::help_pos)
             {
               term::mvoutput({0, cursor_y++}, shadow_beg, g::help_text[i],
                              std::string(g::screen_width - g::help_text[i].size(), ' '), shadow_end);
@@ -1052,12 +1072,115 @@ Command:
               term::mvoutput({0, cursor_y++}, g::help_text[i]);
             }
           }
-          term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::help_lineno);
+          term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::help_pos + 1);
           g::output_inited = true;
         }
       }
       break;
+      case g::Page::NOTIFICATION:
+      {
+        if (!g::output_inited)
+        {
+          term::clear();
+          g::output_inited = true;
+        }
+        size_t cursor_y = 0;
+        term::mvoutput({g::screen_width / 2 - 6, cursor_y++}, "Notification");
+
+        const auto& msgs = g::userdata[g::user_id].messages;
+        if (g::notification_pos >= msgs.size()) g::notification_pos = 0;
+
+        size_t content_size = 0;
+        for (auto& r : msgs)
+          content_size += r.content.size() / g::screen_width + 1;
+        auto [beg, end] = get_display_section(g::screen_height - 3,
+                                              g::notification_pos, content_size);
+
+        size_t line_pos = 0;
+        for (size_t i = 0; i < msgs.size(); ++i)
+        {
+          const auto& msg = msgs[msgs.size() - i - 1];
+          if (line_pos >= beg && line_pos < end)
+          {
+            auto time = std::chrono::system_clock::to_time_t(
+              std::chrono::system_clock::time_point(std::chrono::seconds(msg.time)));
+            char buf[16];
+            std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time));
+            std::string time_str(buf);
+
+            std::string raw;
+            if (!msg.read)
+              raw += utils::color_256_fg("NEW> ", 9);
+            raw += "[" + time_str + "]";
+            if (msg.from != -1)
+              raw += std::to_string(msg.from) + ": ";
+            raw += msg.content;
+
+            auto msg_text = fit_into_screen(raw);
+
+            if (i == g::notification_pos)
+            {
+              for (auto& r : msg_text)
+              {
+                size_t pos = r.find("\x1b[0m");
+                // Note that shadow_beg and shadow_end don't contains "\x1b[0m"
+                while (pos != std::string::npos)
+                {
+                  r.insert(pos + 4, shadow_beg);
+                  pos = r.find("\x1b[0m", pos + 3);
+                }
+                term::mvoutput({0, cursor_y++}, shadow_beg, r, shadow_end);
+              }
+            }
+            else
+            {
+              for (auto& r : msg_text)
+              {
+                term::mvoutput({0, cursor_y++}, r);
+              }
+            }
+          }
+          line_pos += msg.content.size() / g::screen_width + 1;
+        }
+
+        term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::notification_pos + 1);
+        g::output_inited = true;
+      }
+      break;
     }
+
+    static const auto show_info = []
+    {
+      std::string left = "Tank Version 0.2.1 (Compile: " + std::string(__DATE__) + ")";
+      std::string right;
+      if (g::game_mode == g::GameMode::NATIVE)
+        right += "Native Mode";
+      else if (g::game_mode == g::GameMode::SERVER)
+      {
+        right += "Server Mode | Port: " + std::to_string(g::online_server.get_port()) + " | ";
+        size_t active_users = 0;
+        for (auto& r : g::userdata)
+        {
+          if (r.second.active)
+            ++active_users;
+        }
+        right += "User: " + std::to_string(active_users) + "/" + std::to_string(g::userdata.size());
+      }
+      else if (g::game_mode == g::GameMode::CLIENT)
+      {
+        right += "Client Mode | ";
+        right += "ID: " + std::to_string(g::user_id) + " | Connected to " + g::online_client.get_host() + ":"
+            + std::to_string(g::online_client.get_port()) + " | ";
+        if (g::delay < 50)
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
+        else if (g::delay < 100)
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 11);
+        else
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
+      }
+      flexible_output(left, right);
+    };
+
     // command
     if (g::typing_command)
     {
@@ -1067,29 +1190,25 @@ Command:
     else
     {
       term::move_cursor(term::TermPos(0, g::screen_height - 1));
-      auto now = std::chrono::steady_clock::now();
-      auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
-      if (d2 > g::msg_ttl)
+      if (g::userdata[g::user_id].messages.empty()) show_info();
+      else
       {
-        if (!g::userdata[g::user_id].messages.empty())
+        auto now = std::chrono::steady_clock::now();
+        auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+        if (d2 > g::msg_ttl)
         {
-          auto msg = g::userdata[g::user_id].messages.top();
-          g::userdata[g::user_id].messages.pop();
-          std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-          int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
-          if (a2 > 0)
+          auto msg = msg::read_a_message(g::user_id);
+          if (msg.has_value())
           {
-            term::output(str, std::string(a2, ' '));
+            std::string str = ((msg->from == -1) ? "" : std::to_string(msg->from) + ": ") + msg->content;
+            int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(str));
+            if (a2 > 0)
+              term::output(str, std::string(a2, ' '));
+            else
+              term::output(str.substr(0, static_cast<int>(str.size()) + a2));
+            g::last_message_displayed = now;
           }
-          else
-          {
-            term::output(str.substr(0, static_cast<int>(str.size()) + a2));
-          }
-          g::last_message_displayed = now;
-        }
-        else
-        {
-          term::output(std::string(g::screen_width, ' '));
+          else show_info();
         }
       }
     }

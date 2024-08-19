@@ -114,7 +114,7 @@ namespace czh::utils
     return true;
   }
 
-  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end)
+  size_t display_width(const std::string::const_iterator& beg, const std::string::const_iterator& end)
   {
     size_t ret = 0;
     std::string n;
@@ -131,14 +131,14 @@ namespace czh::utils
     return ret;
   }
 
-  size_t escape_code_len(const std::string& str)
+  size_t display_width(const std::string& str)
   {
-    return escape_code_len(str.cbegin(), str.cend());
+    return display_width(str.cbegin(), str.cend());
   }
 
   std::string setw(size_t w, std::string s)
   {
-    auto sz = escape_code_len(s);
+    auto sz = display_width(s);
     if(sz >= w)
       return s;
     s.insert(s.end(), w - sz, ' ');

@@ -39,7 +39,7 @@ namespace czh::g
   {
     size_t user_id{0};
     std::set<map::Pos> map_changes;
-    std::priority_queue<msg::Message> messages;
+    std::vector<msg::Message> messages;
     std::chrono::steady_clock::time_point last_update;
     std::string ip;
     bool active{false};
@@ -56,6 +56,7 @@ namespace czh::g
     STATUS,
     MAIN,
     HELP,
+    NOTIFICATION
   };
   
   // game.cpp
@@ -102,8 +103,9 @@ namespace czh::g
   extern Page curr_page;
   extern std::vector<std::string> help_text;
   extern std::vector<std::string> status_text;
-  extern size_t status_lineno;
-  extern size_t help_lineno;
+  extern size_t status_pos;
+  extern size_t help_pos;
+  extern size_t notification_pos;
   extern map::Zone visible_zone;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
@@ -115,7 +117,7 @@ namespace czh::g
   extern const drawing::PointView wall_point_view;
   extern drawing::Style style;
   extern std::mutex drawing_mtx;
-  
+
   // game_map.cpp
   extern map::Map game_map;
   extern unsigned long long seed;

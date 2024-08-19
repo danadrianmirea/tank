@@ -512,10 +512,22 @@ namespace czh::online
         }
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>
             (std::chrono::steady_clock::now() - beg);
+
+        std::vector<msg::Message> msgs;
+        for(auto it = g::userdata[id].messages.rbegin(); it < g::userdata[id].messages.rend(); ++it)
+        {
+          if(!it->read)
+          {
+            msgs.emplace_back(*it);
+            it->read = true;
+          }
+          else // New messages are at the begin of the std::vector, so just break.
+            break;
+        }
+
         res.set_content(make_response(d.count(), drawing::extract_userinfo(),
                                       changes, drawing::extract_tanks(),
-                                      g::userdata[id].messages, drawing::extract_map(zone)));
-        g::userdata[id].messages = decltype(g::userdata[id].messages){};
+                                      msgs, drawing::extract_map(zone)));
         g::userdata[id].map_changes.clear();
         g::userdata[id].last_update = std::chrono::steady_clock::now();
       }
@@ -594,10 +606,11 @@ namespace czh::online
     });
   }
 
-  void TankServer::start(int port) const
+  void TankServer::start(int port_)
   {
+    port = port_;
     std::thread th{
-      [this, port] { svr->start(port); }
+      [this] { svr->start(port); }
     };
     th.detach();
   }
@@ -613,6 +626,12 @@ namespace czh::online
   {
     delete svr;
   }
+
+  int TankServer::get_port() const
+  {
+    return port;
+  }
+
 
   std::optional<size_t> TankClient::connect(const std::string& addr_, int port_)
   {
@@ -697,7 +716,7 @@ namespace czh::online
     }
     int delay;
     auto old_seed = g::snapshot.map.seed;
-    std::priority_queue<msg::Message> msgs;
+    std::vector<msg::Message> msgs;
     std::tie(delay, g::snapshot.userinfo, g::snapshot.changes, g::snapshot.tanks, msgs, g::snapshot.map)
         = ser::deserialize<
           decltype(delay),
@@ -709,12 +728,12 @@ namespace czh::online
     int curr_delay = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>
                        (std::chrono::steady_clock::now() - beg).count()) - delay;
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
-    while (!msgs.empty())
-    {
-      g::userdata[g::user_id].messages.push(msgs.top());
-      msgs.pop();
-    }
-    if (old_seed != g::snapshot.map.seed) g::output_inited = false;
+
+    for(auto& r : msgs)  // reverse
+      g::userdata[g::user_id].messages.emplace_back(r);
+
+    if (old_seed != g::snapshot.map.seed)
+      g::output_inited = false;
     return 0;
   }
 
@@ -747,4 +766,16 @@ namespace czh::online
     }
     cli = new TCPClient{};
   }
+
+  int TankClient::get_port() const
+  {
+    return port;
+  }
+
+  std::string TankClient::get_host() const
+  {
+    return host;
+  }
+
+
 }

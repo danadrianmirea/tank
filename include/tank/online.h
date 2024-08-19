@@ -209,15 +209,15 @@ namespace czh::online
 
     ~TCPClient();
 
-    int connect(const std::string& addr, int port) const;
+    [[nodiscard]] int connect(const std::string& addr, int port) const;
 
-    int disconnect() const;
+    [[nodiscard]] int disconnect() const;
 
-    std::optional<std::string> send_and_recv(const std::string& str) const;
+    [[nodiscard]] std::optional<std::string> send_and_recv(const std::string& str) const;
 
-    int send(const std::string& str) const;
+    [[nodiscard]] int send(const std::string& str) const;
 
-    std::optional<std::string> recv() const;
+    [[nodiscard]] std::optional<std::string> recv() const;
 
     void reset();
   };
@@ -226,6 +226,7 @@ namespace czh::online
   {
   private:
     TCPServer* svr;
+    int port;
     //UDPSocket* udp;
   public:
     TankServer() = default;
@@ -234,9 +235,11 @@ namespace czh::online
 
     void init();
 
-    void start(int port) const;
+    void start(int port);
 
     void stop();
+
+    [[nodiscard]] int get_port() const;
   };
 
   class TankClient
@@ -259,13 +262,17 @@ namespace czh::online
 
     void disconnect();
 
-    int tank_react(tank::NormalTankEvent e) const;
+    [[nodiscard]] int tank_react(tank::NormalTankEvent e) const;
 
-    int update() const;
+    [[nodiscard]] int update() const;
 
-    int add_auto_tank(size_t l) const;
+    [[nodiscard]] int add_auto_tank(size_t l) const;
 
-    int run_command(const std::string& str) const;
+    [[nodiscard]] int run_command(const std::string& str) const;
+
+    [[nodiscard]] int get_port() const;
+
+    [[nodiscard]] std::string get_host() const;
   };
 }
 #endif

@@ -650,23 +650,5 @@ namespace czh::ser
   {
     return deserialize<std::tuple<Args...>>(str);
   }
-
-  template<>
-  inline std::string serialize(const std::priority_queue<msg::Message>& item)
-  {
-    if(item.empty()) return "";
-    std::vector<msg::Message> o;
-    o.resize(item.size());
-    std::copy(&(item.top()), &(item.top()) + item.size(), &o[0]);
-    return serialize(o);
-  }
-
-  template<>
-  inline std::priority_queue<msg::Message> deserialize(const std::string& str)
-  {
-    if(str.empty()) return {};
-    auto o = deserialize<std::vector<msg::Message>>(str);
-    return {std::make_move_iterator(o.begin()), std::make_move_iterator(o.end())};
-  }
 }
 #endif

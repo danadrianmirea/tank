@@ -18,7 +18,6 @@
 #include "tank/input.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
-#include "tank/serialization.h"
 #include <chrono>
 #include <thread>
 #include <string>
@@ -33,7 +32,7 @@ void react(tank::NormalTankEvent event)
   {
     if (g::game_mode == g::GameMode::CLIENT)
     {
-      g::online_client.tank_react(event);
+      int ret = g::online_client.tank_react(event);
     }
     else
     {
@@ -72,7 +71,7 @@ int main()
           std::vector<size_t> disconnected;
           for (auto& r : g::userdata)
           {
-            if (r.first == 0) continue;
+            if (r.first == 0 || !r.second.active) continue;
             auto d = std::chrono::duration_cast<std::chrono::seconds>
                 (std::chrono::steady_clock::now() - r.second.last_update);
             if (d.count() > 5)
@@ -168,11 +167,15 @@ int main()
           g::curr_page = g::Page::STATUS;
           g::output_inited = false;
           break;
+        case input::Input::KEY_I:
+          g::curr_page = g::Page::NOTIFICATION;
+        g::output_inited = false;
+        break;
         case input::Input::KEY_L:
         {
           if (g::game_mode == g::GameMode::CLIENT)
           {
-            g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
+            int ret = g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
           }
           else
           {
@@ -190,16 +193,16 @@ int main()
       switch (i)
       {
         case input::Input::UP:
-          if (g::help_lineno != 1)
+          if (g::help_pos != 0)
           {
-            g::help_lineno--;
+            g::help_pos--;
             g::output_inited = false;
           }
           break;
         case input::Input::DOWN:
-          if (g::help_lineno < g::help_text.size())
+          if (g::help_pos < g::help_text.size() - 1)
           {
-            g::help_lineno++;
+            g::help_pos++;
             g::output_inited = false;
           }
           break;
@@ -211,16 +214,16 @@ int main()
       switch (i)
       {
         case input::Input::UP:
-          if (g::status_lineno != 1)
+          if (g::status_pos != 0)
           {
-            g::status_lineno--;
+            g::status_pos--;
             g::output_inited = false;
           }
           break;
         case input::Input::DOWN:
-          if (g::status_lineno < g::snapshot.tanks.size() + g::snapshot.userinfo.size())
+          if (g::status_pos < g::snapshot.tanks.size() + g::snapshot.userinfo.size() - 1)
           {
-            g::status_lineno++;
+            g::status_pos++;
             g::output_inited = false;
           }
           break;
@@ -228,6 +231,31 @@ int main()
           g::curr_page = g::Page::GAME;
           g::output_inited = false;
           break;
+        default: break;
+      }
+    }
+    else if (g::curr_page == g::Page::NOTIFICATION)
+    {
+      switch (i)
+      {
+        case input::Input::UP:
+          if (g::notification_pos != 0)
+          {
+            g::notification_pos--;
+            g::output_inited = false;
+          }
+        break;
+        case input::Input::DOWN:
+          if (g::notification_pos < g::userdata[g::user_id].messages.size() - 1)
+          {
+            g::notification_pos++;
+            g::output_inited = false;
+          }
+        break;
+        case input::Input::KEY_I:
+          g::curr_page = g::Page::GAME;
+        g::output_inited = false;
+        break;
         default: break;
       }
     }

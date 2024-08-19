@@ -82,6 +82,21 @@ namespace czh::g
     return id_provider([](auto&& r) { return r.second->is_auto(); }, cond);
   }
 
+  cmd::HintProvider user_id_provider(const std::string& cond = "")
+  {
+    return [cond](const std::string& s)
+    {
+      cmd::Hints ret{};
+      if (cond.empty() || cond == s)
+      {
+        for(const auto& r : g::snapshot.userinfo)
+          ret.emplace_back(std::to_string(r.first), true);
+        return ret;
+      }
+      return cmd::Hints{};
+    };
+  }
+
   cmd::HintProvider range_provider(int a, int b, const std::string& cond = "") //[a, b)
   {
     cmd::Hints ret;
@@ -237,11 +252,21 @@ namespace czh::g
         },
       }
     },
-    {"tell", "[id, optional], [msg]", {valid_id_provider(), fixed_provider({{"[Message, string]", false}})}},
+    {
+      "tell", "[id, optional], [msg]",
+      {user_id_provider(), fixed_provider({{"[Message, string]", false}})}
+    },
     {"pause", "** No arguments **", {}},
     {"continue", "** No arguments **", {}},
     {"quit", "** No arguments **", {}},
     {"status", "** No arguments **", {}},
+    {
+      "notification", "notification (action)",
+      {
+        fixed_provider({{"read", true}, {"clear", true}}),
+        fixed_provider({{"read", true}}, "clear")
+      }
+    },
     {"save", "[filename, string]", {}},
     {"load", "[filename, string]", {}}
   };
@@ -266,41 +291,62 @@ namespace czh::cmd
       skip_space();
       std::string temp;
       bool maybe_int = true;
-      while (it < cmd.cend() && !std::isspace(*it))
+
+      if(*it == '"')
       {
-        if (!std::isdigit(*it) && *it != '+' && *it != '-') maybe_int = false;
-        temp += *it++;
+        ++it;
+        while(it < cmd.cend() && *it != '"')
+          temp += *it++;
+        if(it == cmd.cend() && *(it - 1) != '"')
+          return {.good =  false, .error= {"Synax Error: Expected '\"'."}};
+        ++it;
+        args.emplace_back(temp);
       }
-      if (!temp.empty())
+      else
       {
-        if (maybe_int)
+        while (it < cmd.cend() && !std::isspace(*it))
         {
-          bool stoi_success = true;
-          int a = 0;
-          try
-          {
-            a = std::stoi(temp);
-          }
-          catch (...)
-          {
-            stoi_success = false;
-          }
-          if (stoi_success)
-            args.emplace_back(a);
-          else
-            args.emplace_back(temp);
+          if (!std::isdigit(*it) && *it != '+' && *it != '-') maybe_int = false;
+          temp += *it++;
         }
-        else if (temp == "true") args.emplace_back(true);
-        else if (temp == "false") args.emplace_back(false);
-        else args.emplace_back(temp);
+        if (!temp.empty())
+        {
+          if (maybe_int)
+          {
+            bool stoi_success = true;
+            int a = 0;
+            try
+            {
+              a = std::stoi(temp);
+            }
+            catch (...)
+            {
+              stoi_success = false;
+            }
+            if (stoi_success)
+              args.emplace_back(a);
+            else
+              args.emplace_back(temp);
+          }
+          else if (temp == "true") args.emplace_back(true);
+          else if (temp == "false") args.emplace_back(false);
+          else args.emplace_back(temp);
+        }
       }
     }
-    return CmdCall{.name = name, .args = args};
+    return CmdCall{.good = true, .name = name, .args = args};
   }
 
   void run_command(size_t user_id, const std::string& str)
   {
     auto call = parse(str);
+
+    if(!call.good)
+    {
+      msg::error(user_id, call.error[0]);
+      return;
+    }
+
     if (g::game_mode == g::GameMode::CLIENT)
     {
       if (g::remote_cmds.find(call.name) != g::remote_cmds.end())
@@ -315,7 +361,7 @@ namespace czh::cmd
     if (call.is("help"))
     {
       if (call.args.empty())
-        g::help_lineno = 1;
+        g::help_pos = 0;
       else if (auto v = call.get_if(
         [&call](int i)
         {
@@ -323,7 +369,7 @@ namespace czh::cmd
         }); v)
       {
         int i = std::get<0>(*v);
-        g::help_lineno = i;
+        g::help_pos = i - 1;
       }
       else goto invalid_args;
       g::curr_page = g::Page::HELP;
@@ -337,6 +383,42 @@ namespace czh::cmd
         g::output_inited = false;
       }
       else goto invalid_args;
+    }
+    else if (call.is("notification"))
+    {
+      //std::lock_guard<std::mutex> ml(g::mainloop_mtx);
+      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      if (call.args.empty())
+      {
+        g::curr_page = g::Page::NOTIFICATION;
+        g::output_inited = false;
+      }
+      else if (auto v = call.get_if([&call](std::string option)
+      {
+        return call.assert(option == "clear" || option == "read", "Invalid option.");
+      }); v)
+      {
+        auto [opt] = *v;
+        if (opt == "clear")
+          g::userdata[user_id].messages.clear();
+        else if (opt == "read")
+        {
+          for (auto& r : g::userdata[user_id].messages)
+            r.read = true;
+        }
+      }
+      else if (call.get_if([&call](std::string option, std::string f)
+      {
+        return call.assert(option == "clear" && f == "read", "Invalid option.");
+      }))
+      {
+        auto& msgs = g::userdata[user_id].messages;
+        msgs.erase(std::remove_if(msgs.begin(), msgs.end(), [](auto&& m) { return m.read; }), msgs.end());
+      }
+      else goto invalid_args;
+
+      if(g::curr_page == g::Page::NOTIFICATION)
+        g::output_inited = false;
     }
     else if (call.is("quit"))
     {
@@ -799,8 +881,8 @@ namespace czh::cmd
         [&call, &user_id](std::string key, bool arg)
         {
           return call.assert(key == "unsafe", "Invalid option.")
-          && call.assert(g::unsafe_mode || user_id == g::user_id,
-            "This command can only be executed by the server itself. (see '/help' for a workaround)");
+                 && call.assert(g::unsafe_mode || user_id == g::user_id,
+                                "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
         auto [option, arg] = *v;
@@ -907,7 +989,7 @@ namespace czh::cmd
           g::game_mode = g::GameMode::CLIENT;
           g::user_id = *try_connect;
           g::tank_focus = g::user_id;
-          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id}}};
+          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id, .active = true}}};
           g::output_inited = false;
           msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
         }
@@ -930,7 +1012,7 @@ namespace czh::cmd
           g::game_mode = g::GameMode::CLIENT;
           g::user_id = static_cast<size_t>(id);
           g::tank_focus = g::user_id;
-          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id}}};
+          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id, .active = true}}};
           g::output_inited = false;
           msg::info(user_id, "Reconnected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
         }
@@ -939,7 +1021,7 @@ namespace czh::cmd
     }
     else if (call.is("disconnect"))
     {
-      if(g::game_mode != g::GameMode::CLIENT)
+      if (g::game_mode != g::GameMode::CLIENT)
       {
         call.error.emplace_back("Invalid request to disconnect.");
         goto invalid_args;
@@ -948,6 +1030,7 @@ namespace czh::cmd
       {
         g::online_client.disconnect();
         g::game_mode = g::GameMode::NATIVE;
+        g::userdata = {{0, g::userdata[g::user_id]}};
         g::user_id = 0;
         g::tank_focus = g::user_id;
         g::output_inited = false;
@@ -987,7 +1070,7 @@ namespace czh::cmd
         [&call, &user_id](std::string fn)
         {
           return call.assert(g::unsafe_mode || user_id == g::user_id,
-            "This command can only be executed by the server itself. (see '/help' for a workaround)");
+                             "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
         std::tie(filename) = *v;
@@ -1015,7 +1098,7 @@ namespace czh::cmd
         [&call, &user_id](std::string fn)
         {
           return call.assert(g::unsafe_mode || user_id == g::user_id,
-            "This command can only be executed by the server itself. (see '/help' for a workaround)");
+                             "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
         std::tie(filename) = *v;
@@ -1047,15 +1130,16 @@ namespace czh::cmd
 
     return;
   invalid_args:
-    if(!call.error.empty())
+    if (!call.error.empty())
     {
-      for(auto& r : call.error)
+      for (auto& r : call.error)
         msg::error(user_id, r);
     }
-    else[[unlikely]]
+    else
+    [[unlikely]]
     {
       auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
-                            [&call](auto&& f) { return f.cmd == call.name; });
+                             [&call](auto&& f) { return f.cmd == call.name; });
       if (it != g::commands.end())
         msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
       else[[unlikely]]

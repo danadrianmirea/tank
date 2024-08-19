@@ -172,14 +172,14 @@ namespace czh::utils
   bool is_integer(const std::string& r);
 
 
-  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end);
+  size_t display_width(const std::string::const_iterator& beg, const std::string::const_iterator& end);
 
-  size_t escape_code_len(const std::string& str);
+  size_t display_width(const std::string& str);
 
   template<typename... Args>
-  size_t escape_code_len(const std::string& str, Args&&... args)
+  size_t display_width(const std::string& str, Args&&... args)
   {
-    return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
+    return display_width(str) + display_width(std::forward<Args>(args)...);
   }
 
   std::string setw(size_t w, std::string s);

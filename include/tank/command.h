@@ -148,6 +148,7 @@ namespace czh::cmd
 
   struct CmdCall
   {
+    bool good;
     std::string name;
     std::vector<details::Arg> args;
     std::vector<std::string> error;

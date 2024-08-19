@@ -35,6 +35,7 @@ namespace czh::input
 
     KEY_O,
     KEY_L,
+    KEY_I,
     KEY_SLASH,
     KEY_CTRL_C,
     KEY_CTRL_Z,

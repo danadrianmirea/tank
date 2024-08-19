@@ -22,7 +22,8 @@ overcome unpredictable obstacles. You can play solo or team up with friends.
 
 - Move: WASD or direction keys
 - Attack: space
-- Tank Status: 'o' or 'O'
+- Status: 'o' or 'O'
+- Notification: 'i' or 'I'
 - Command: '/'
 
 #### Tank
@@ -42,6 +43,22 @@ help [line]
 
 - Get this help.
 - Use 'Enter' to return game.
+
+notification
+
+- Show Notification page.
+
+notification read
+
+- Set all messages as read.
+
+notification clear
+
+- Clear all messages.
+
+notification clear read
+
+- Clear read messages.
 
 status
 

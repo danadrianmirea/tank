@@ -29,7 +29,7 @@ namespace czh::g
   std::atomic<bool> game_suspend = false;
   GameMode game_mode = GameMode::NATIVE;
   size_t user_id = 0;
-  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
+  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0, .active = true}}};
   std::chrono::milliseconds tick(16);
   std::chrono::milliseconds msg_ttl(2000);
   std::mutex mainloop_mtx;

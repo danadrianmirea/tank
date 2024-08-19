@@ -755,6 +755,10 @@ namespace czh::input
           {
             return Input::KEY_O;
           }
+          else if (buf == 'i' || buf == 'I')
+          {
+            return Input::KEY_I;
+          }
           else if (buf == 'l' || buf == 'L')
           {
             return Input::KEY_L;

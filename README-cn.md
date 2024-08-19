@@ -21,7 +21,8 @@ Tank
 
 - 移动：WASD 或方向键
 - 攻击：空格
-- 查看坦克状态：“o”或“O”
+- 查看状态：“o”或“O”
+- 查看通知：“i”或“I”
 - 输入命令：“/”
 
 #### 坦克
@@ -45,6 +46,22 @@ help [line]
 status
 
 - 查看状态页。
+
+notification
+
+- 查看通知页。
+
+notification read
+
+- 设置所有消息为已读。
+
+notification clear
+
+- 清除所有消息。
+
+notification clear read
+
+- 清除所有已读消息。
 
 quit
 

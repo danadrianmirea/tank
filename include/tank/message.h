@@ -25,6 +25,8 @@ namespace czh::msg
     int from;
     std::string content;
     int priority;
+    bool read;
+    long time;
   };
   
   bool operator<(const Message &m1, const Message &m2);
@@ -50,5 +52,7 @@ namespace czh::msg
   void critical(size_t id, const std::string &c);
   
   int send_message(int from, int to, const std::string &msg_content, int priority = 0);
+
+  std::optional<Message> read_a_message(size_t id);
 }
 #endif
