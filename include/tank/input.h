@@ -80,6 +80,8 @@ namespace czh::input
 
   void edit_refresh_line(bool with_hint = true);
 
+  void edit_refresh_line_nolock(bool with_hint = true);
+
   Input get_input();
 }
 #endif

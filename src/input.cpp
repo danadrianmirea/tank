@@ -27,7 +27,7 @@ namespace czh::g
   bool typing_command = false;
   std::string cmd_line{};
   size_t cmd_pos = 0;
-  size_t cmd_last_cols = 0;
+  std::pair<size_t, size_t> visible_cmd_line{0, 0};
   std::vector<std::string> history{};
   size_t history_pos = 0;
   cmd::Hints hint{};
@@ -40,13 +40,6 @@ namespace czh::g
 
 namespace czh::input
 {
-  template<typename... Args>
-  void cmd_output(Args&&... args)
-  {
-    std::lock_guard<std::mutex> l(g::drawing_mtx);
-    term::output(std::forward<Args>(args)...);
-  }
-
   bool is_special_key(int c)
   {
     return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 26 ||
@@ -113,52 +106,99 @@ namespace czh::input
       g::hint.emplace_back(it->substr(g::cmd_line.size()), true);
   }
 
-  std::string highlight_cmd_line()
+  void pos_left()
   {
-    // TODO highlight
-    return g::cmd_line;
+    auto& [beg, end] = g::visible_cmd_line;
+    if (g::cmd_pos > beg) return;
+    beg = g::cmd_pos;
+    end = (std::min)(beg + g::screen_width - 2, g::cmd_line.size());
+  }
+
+  void pos_right()
+  {
+    auto& [beg, end] = g::visible_cmd_line;
+    if (g::cmd_pos <= end) return;
+    end = g::cmd_pos;
+    beg = end > g::screen_width - 2 ? end - g::screen_width + 2 : 0;
+  }
+
+  void get_visible_cmd_line()
+  {
+    auto& [beg, end] = g::visible_cmd_line;
+    if (g::cmd_line.size() <= g::screen_width - 2)
+    {
+      beg = 0;
+      end = g::screen_width - 2;
+    }
+    else
+    {
+      if (g::cmd_pos < g::screen_width - 2)
+      {
+        beg = 0;
+        end = g::screen_width - 2;
+      }
+      else
+      {
+        end = g::cmd_pos;
+        beg = end - g::screen_width + 2;
+      }
+    }
   }
 
   void cmdline_refresh(bool with_hint = true)
   {
-    std::lock_guard<std::mutex> l(g::drawing_mtx);
+    // move to begin and clear the cmd_line
     term::move_cursor({0, g::screen_height - 1});
     term::show_cursor();
-    // move to begin and clear the cmd_line
-    if (g::cmd_last_cols != 0)
-    {
-      term::output("\x1b[", g::cmd_last_cols, "D\x1b[K");
-    }
-    else
-    {
-      term::output("\x1b[K");
-    }
+    term::output("\x1b[K");
     // the current cmd_line
-    term::output("/", highlight_cmd_line());
-    // hint
-    if (with_hint)
+
+    auto color = [](const std::string& s) { return utils::color_256_fg(s, 9); };
+
+    // Too long, disable hint
+    if (g::hint.empty() || g::cmd_line.size() + g::hint[g::hint_pos].hint.size() > g::screen_width - 2)
+      with_hint = false;
+
+    if (g::cmd_line.size() <= g::screen_width - 1)
     {
-      if (!g::hint.empty())
+      term::output(color("/"), g::cmd_line);
+      // hint
+      if (with_hint && !g::hint.empty())
         term::output("\x1b[2m", g::hint[g::hint_pos].hint, "\x1b[0m");
+
+      term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
     }
-    // move cursor back
-    auto cursor_col = g::cmd_pos;
-    auto curr_col = g::cmd_line.size();
-    if (!g::hint.empty())
-      curr_col += g::hint[g::hint_pos].hint.size();
-    if (curr_col > cursor_col)
+    else // still too long, split
     {
-      term::output("\x1b[", curr_col - cursor_col, "D");
+      const auto& [beg, end] = g::visible_cmd_line;
+      if (beg == 0 && end == 0)
+        get_visible_cmd_line();
+      if (beg == 0)
+        term::output(color("/"));
+      else
+        term::output(color("<"));
+      size_t sz = end - beg;
+      utils::tank_assert(beg + sz - 1 < g::cmd_line.size());
+      term::output(g::cmd_line.substr(beg, sz));
+      if (end - beg == g::screen_width - 2 && end != g::cmd_line.size())
+        term::output(color(">"));
+      term::move_cursor({g::cmd_pos - beg + 1, g::screen_height - 1});
     }
-    // save cmd_pos for next refresh
-    g::cmd_last_cols = cursor_col;
   }
 
   void edit_refresh_line(bool with_hint)
   {
+    std::lock_guard<std::mutex> l(g::drawing_mtx);
     cmdline_refresh(with_hint);
     term::flush();
   }
+
+  void edit_refresh_line_nolock(bool with_hint)
+  {
+    cmdline_refresh(with_hint);
+    term::flush();
+  }
+
 
   void next_hint()
   {
@@ -172,9 +212,9 @@ namespace czh::input
   void move_to_beginning()
   {
     if (g::cmd_pos == 0) return;
-    cmd_output("\x1b[", g::cmd_pos, "D");
     g::cmd_pos = 0;
-    g::cmd_last_cols = 0;
+    pos_left();
+    edit_refresh_line();
   }
 
   void move_to_end(bool apply_hint = true)
@@ -192,8 +232,7 @@ namespace czh::input
 
     auto origin_width = g::cmd_pos;
     g::cmd_pos = g::cmd_line.size();
-    g::cmd_last_cols = g::cmd_pos;
-    cmd_output("\x1b[", g::cmd_last_cols - origin_width, "C");
+    pos_right();
     if (refresh) edit_refresh_line();
   }
 
@@ -214,8 +253,8 @@ namespace czh::input
     {
       --g::cmd_pos;
     }
-    g::cmd_last_cols = g::cmd_pos;
-    cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
+    pos_left();
+    edit_refresh_line();
   }
 
   void move_to_word_end()
@@ -231,8 +270,8 @@ namespace czh::input
     {
       ++g::cmd_pos;
     }
-    g::cmd_last_cols = g::cmd_pos;
-    cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
+    pos_right();
+    edit_refresh_line();
   }
 
   void move_left()
@@ -241,9 +280,9 @@ namespace czh::input
     {
       auto origin = g::cmd_pos;
       --g::cmd_pos;
-      g::cmd_last_cols = g::cmd_pos;
-      cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
     }
+    pos_left();
+    edit_refresh_line();
   }
 
   void move_right()
@@ -252,9 +291,9 @@ namespace czh::input
     {
       auto origin = g::cmd_pos;
       ++g::cmd_pos;
-      g::cmd_last_cols = g::cmd_pos;
-      cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
     }
+    pos_right();
+    edit_refresh_line();
   }
 
   void edit_delete()
@@ -606,6 +645,7 @@ namespace czh::input
         else
         {
           g::cmd_line.insert(g::cmd_pos++, 1, static_cast<char>(buf));
+          pos_right();
           get_hint();
           edit_refresh_line();
         }

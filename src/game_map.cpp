@@ -27,19 +27,19 @@ namespace czh::g
 
 namespace czh::map
 {
-  void add_changes(const Pos &p)
+  void add_changes(const Pos& p)
   {
-    for (auto &r: g::userdata)
+    for (auto& r : g::userdata)
     {
       r.second.map_changes.insert(p);
     }
   }
-  
+
   Zone Zone::bigger_zone(int i) const
   {
     return {x_min - i, x_max + i, y_min - i, y_max + i};
   }
-  
+
   bool Zone::contains(int i, int j) const
   {
     return (i >= x_min
@@ -47,40 +47,40 @@ namespace czh::map
             && j >= y_min
             && j < y_max);
   }
-  
-  bool Zone::contains(const Pos &p) const
+
+  bool Zone::contains(const Pos& p) const
   {
     return contains(p.x, p.y);
   }
-  
+
   bool Point::is_generated() const
   {
     return generated;
   }
-  
+
   bool Point::is_temporary() const
   {
     return temporary;
   }
-  
+
   bool Point::is_empty() const
   {
     return statuses.empty();
   }
-  
-  tank::Tank *Point::get_tank() const
+
+  tank::Tank* Point::get_tank() const
   {
     utils::tank_assert(has(Status::TANK));
     return tank;
   }
-  
-  const std::vector<bullet::Bullet *> &Point::get_bullets() const
+
+  const std::vector<bullet::Bullet*>& Point::get_bullets() const
   {
     utils::tank_assert(has(Status::BULLET));
     return bullets;
   }
-  
-  void Point::add_status(const Status &status, void *ptr)
+
+  void Point::add_status(const Status& status, void* ptr)
   {
     statuses.emplace_back(status);
     if (ptr != nullptr)
@@ -88,28 +88,28 @@ namespace czh::map
       switch (status)
       {
         case Status::BULLET:
-          bullets.emplace_back(static_cast<bullet::Bullet *>(ptr));
-        break;
+          bullets.emplace_back(static_cast<bullet::Bullet*>(ptr));
+          break;
         case Status::TANK:
-          tank = static_cast<tank::Tank *>(ptr);
-        break;
+          tank = static_cast<tank::Tank*>(ptr);
+          break;
         default:
           break;
       }
     }
   }
 
-  void Point::remove_status(const Status &status)
+  void Point::remove_status(const Status& status)
   {
     statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
     switch (status)
     {
       case Status::BULLET:
         bullets.clear();
-      break;
+        break;
       case Status::TANK:
         tank = nullptr;
-      break;
+        break;
       default:
         break;
     }
@@ -122,27 +122,27 @@ namespace czh::map
     tank = nullptr;
   }
 
-  [[nodiscard]] bool Point::has(const Status &status) const
+  [[nodiscard]] bool Point::has(const Status& status) const
   {
     return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
   }
 
-  [[nodiscard]]std::size_t Point::count(const Status &status) const
+  [[nodiscard]] std::size_t Point::count(const Status& status) const
   {
     return std::count(statuses.cbegin(), statuses.cend(), status);
   }
 
-  bool Pos::operator==(const Pos &pos) const
+  bool Pos::operator==(const Pos& pos) const
   {
     return (x == pos.x && y == pos.y);
   }
 
-  bool Pos::operator!=(const Pos &pos) const
+  bool Pos::operator!=(const Pos& pos) const
   {
     return !(*this == pos);
   }
 
-  bool operator<(const Pos &pos1, const Pos &pos2)
+  bool operator<(const Pos& pos1, const Pos& pos2)
   {
     if (pos1.x == pos2.x)
     {
@@ -151,71 +151,71 @@ namespace czh::map
     return pos1.x < pos2.x;
   }
 
-  std::size_t get_distance(const Pos &from, const Pos &to)
+  std::size_t get_distance(const Pos& from, const Pos& to)
   {
     return std::abs(from.x - to.x) + std::abs(from.y - to.y);
   }
 
   Map::Map() = default;
 
-  int Map::tank_up(const Pos &pos)
+  int Map::tank_up(const Pos& pos)
   {
     return tank_move(pos, 0);
   }
 
-  int Map::tank_down(const Pos &pos)
+  int Map::tank_down(const Pos& pos)
   {
     return tank_move(pos, 1);
   }
 
-  int Map::tank_left(const Pos &pos)
+  int Map::tank_left(const Pos& pos)
   {
     return tank_move(pos, 2);
   }
 
-  int Map::tank_right(const Pos &pos)
+  int Map::tank_right(const Pos& pos)
   {
     return tank_move(pos, 3);
   }
 
-  int Map::bullet_up(bullet::Bullet *b, const Pos &pos)
+  int Map::bullet_up(bullet::Bullet* b, const Pos& pos)
   {
     return bullet_move(b, pos, 0);
   }
 
-  int Map::bullet_down(bullet::Bullet *b, const Pos &pos)
+  int Map::bullet_down(bullet::Bullet* b, const Pos& pos)
   {
     return bullet_move(b, pos, 1);
   }
 
-  int Map::bullet_left(bullet::Bullet *b, const Pos &pos)
+  int Map::bullet_left(bullet::Bullet* b, const Pos& pos)
   {
     return bullet_move(b, pos, 2);
   }
 
-  int Map::bullet_right(bullet::Bullet *b, const Pos &pos)
+  int Map::bullet_right(bullet::Bullet* b, const Pos& pos)
   {
     return bullet_move(b, pos, 3);
   }
 
 
-  int Map::add_tank(tank::Tank *t, const Pos &pos)
+  int Map::add_tank(tank::Tank* t, const Pos& pos)
   {
     map[pos].add_status(Status::TANK, t);
     add_changes(pos);
     return 0;
   }
 
-  int Map::add_bullet(bullet::Bullet *b, const Pos &pos)
+  int Map::add_bullet(bullet::Bullet* b, const Pos& pos)
   {
-    auto &p = map[pos];
+    auto& p = map[pos];
     if (p.has(Status::WALL)) return -1;
     p.add_status(Status::BULLET, b);
     add_changes(pos);
     return 0;
   }
 
-  void Map::remove_status(const Status &status, const Pos &pos)
+  void Map::remove_status(const Status& status, const Pos& pos)
   {
     map[pos].remove_status(status);
     if (map[pos].is_temporary() && map[pos].is_empty())
@@ -225,49 +225,49 @@ namespace czh::map
     add_changes(pos);
   }
 
-  bool Map::has(const Status &status, const Pos &pos) const
+  bool Map::has(const Status& status, const Pos& pos) const
   {
     return at(pos).has(status);
   }
 
-  size_t Map::count(const Status &status, const Pos &pos) const
+  size_t Map::count(const Status& status, const Pos& pos) const
   {
     return at(pos).count(status);
   }
 
 
-  const Point &generate(const Pos &i, size_t seed)
+  const Point& generate(const Pos& i, size_t seed)
   {
     constexpr int magic = 9;
 
     // divide the map for quicker route finding
-    if(i.x == 0 || i.y == 0 || i.x % MAP_DIVISION == 0 || i.y % MAP_DIVISION == 0)
+    if (i.x == 0 || i.y == 0 || i.x % MAP_DIVISION == 0 || i.y % MAP_DIVISION == 0)
       return g::empty_point;
 
     int a = i.x * (i.y / magic);
-    if(a < 0) a = -a * 2;
-    if(seed * a % 37 == 1)
+    if (a < 0) a = -a * 2;
+    if (seed * a % 37 == 1)
       return g::wall_point;
 
     a = (i.x / magic) * i.y;
-    if(a < 0) a = -a * 2;
-    if(seed * a % 37 == 1)
+    if (a < 0) a = -a * 2;
+    if (seed * a % 37 == 1)
       return g::wall_point;
 
     return g::empty_point;
   }
 
-  const Point &generate(int x, int y, size_t seed)
+  const Point& generate(int x, int y, size_t seed)
   {
     return generate(Pos(x, y), seed);
   }
 
-  const Point &Map::at(int x, int y) const
+  const Point& Map::at(int x, int y) const
   {
     return at(Pos(x, y));
   }
 
-  const Point &Map::at(const Pos &i) const
+  const Point& Map::at(const Pos& i) const
   {
     if (map.contains(i))
     {
@@ -276,7 +276,7 @@ namespace czh::map
     return generate(i, g::seed);
   }
 
-  int Map::fill(const Zone &zone, const Status &status)
+  int Map::fill(const Zone& zone, const Status& status)
   {
     for (int i = zone.x_min; i < zone.x_max; ++i)
     {
@@ -295,31 +295,31 @@ namespace czh::map
     return 0;
   }
 
-  int Map::tank_move(const Pos &pos, int direction)
+  int Map::tank_move(const Pos& pos, int direction)
   {
     Pos new_pos = pos;
     switch (direction)
     {
       case 0:
         new_pos.y++;
-      break;
+        break;
       case 1:
         new_pos.y--;
-      break;
+        break;
       case 2:
         new_pos.x--;
-      break;
+        break;
       case 3:
         new_pos.x++;
-      break;
+        break;
       default:
         break;
     }
 
     if (at(new_pos).has(Status::WALL)) return -1;
 
-    auto &new_point = map[new_pos];
-    auto &old_point = map[pos];
+    auto& new_point = map[new_pos];
+    auto& old_point = map[pos];
 
     if (new_point.has(Status::TANK)) return -1;
     new_point.add_status(Status::TANK, old_point.tank);
@@ -333,31 +333,31 @@ namespace czh::map
     return 0;
   }
 
-  int Map::bullet_move(bullet::Bullet *b, const Pos &pos, int direction)
+  int Map::bullet_move(bullet::Bullet* b, const Pos& pos, int direction)
   {
     Pos new_pos = pos;
     switch (direction)
     {
       case 0:
         new_pos.y++;
-      break;
+        break;
       case 1:
         new_pos.y--;
-      break;
+        break;
       case 2:
         new_pos.x--;
-      break;
+        break;
       case 3:
         new_pos.x++;
-      break;
+        break;
       default:
         break;
     }
-    
+
     if (at(new_pos).has(Status::WALL)) return -1;
-    
-    auto &new_point = map[new_pos];
-    auto &old_point = map[pos];
+
+    auto& new_point = map[new_pos];
+    auto& old_point = map[pos];
     bool ok = false;
     for (auto it = old_point.bullets.begin(); it != old_point.bullets.end();)
     {
@@ -386,7 +386,7 @@ namespace czh::map
       }
     }
     new_point.add_status(Status::BULLET, b);
-    
+
     if (old_point.is_temporary() && old_point.is_empty())
     {
       map.erase(pos);

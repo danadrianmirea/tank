@@ -522,49 +522,53 @@ namespace czh::drawing
     }
   }
 
-  std::vector<std::string> fit_into_screen(const std::string& raw)
+  std::vector<std::string> fit_into_screen(const std::string& raw, std::string indent = "")
   {
     std::vector<std::string> ret;
     if (auto width = utils::display_width(raw); width > g::screen_width)
     {
-      std::string indent, temp;
-      for (auto& i : raw)
+      // Get indent if not provided
+      if (indent.empty())
       {
-        if (std::isspace(i))
-          indent += i;
-        else
-          break;
+        for (auto& i : raw)
+        {
+          if (std::isspace(i))
+            indent += i;
+          else
+            break;
+        }
       }
-      temp = indent;
+
+      std::string line;
       for (size_t i = 0; i < raw.size(); ++i)
       {
-        if (temp.size() == indent.size() && std::isspace(raw[i]))
+        if (line.size() == indent.size() && std::isspace(raw[i]))
           continue;
-        temp += raw[i];
-        if (utils::display_width(temp) == g::screen_width)
+        line += raw[i];
+        if (utils::display_width(line) == g::screen_width)
         {
           if (i + 1 < raw.size() && std::isalpha(raw[i + 1]) && std::isalpha(raw[i]))
           {
             int j = static_cast<int>(i);
             for (; j >= 0 && !std::isspace(raw[j]); --j)
             {
-              temp.pop_back();
+              line.pop_back();
             }
-            temp.insert(temp.end(), i - j, ' ');
-            ret.emplace_back(temp);
-            temp = indent;
+            line.insert(line.end(), i - j, ' ');
+            ret.emplace_back(line);
+            line = indent;
             i = j;
           }
           else
           {
-            ret.emplace_back(temp);
-            temp = indent;
+            ret.emplace_back(line);
+            line = indent;
           }
         }
       }
-      if (!temp.empty())
+      if (!line.empty())
       {
-        ret.emplace_back(temp);
+        ret.emplace_back(line);
       }
     }
     else
@@ -591,6 +595,11 @@ namespace czh::drawing
       g::output_inited = false;
       g::screen_height = term::get_height();
       g::screen_width = term::get_width();
+      if (g::typing_command)
+      {
+        g::visible_cmd_line = {0, 0};
+        input::edit_refresh_line_nolock();
+      }
 
       static const std::string help =
           R"(
@@ -1026,7 +1035,6 @@ Command:
 )";
           size_t x = g::screen_width / 2 - 12;
           size_t y = 2;
-          term::clear();
           if (g::screen_width > 24)
           {
             auto splitted = utils::split<std::vector<std::string_view> >(tank, "\n");
@@ -1105,18 +1113,21 @@ Command:
             auto time = std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::time_point(std::chrono::seconds(msg.time)));
             char buf[16];
-            std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time));
+            std::strftime(buf, sizeof(buf), "[%H:%M:%S]", std::localtime(&time));
             std::string time_str(buf);
 
             std::string raw;
             if (!msg.read)
               raw += utils::color_256_fg("NEW> ", 9);
-            raw += "[" + time_str + "]";
+            raw += time_str;
             if (msg.from != -1)
               raw += std::to_string(msg.from) + ": ";
+
+            size_t indent_size = raw.size();
+
             raw += msg.content;
 
-            auto msg_text = fit_into_screen(raw);
+            auto msg_text = fit_into_screen(raw, std::string(indent_size, '-'));
 
             if (i == g::notification_pos)
             {
@@ -1184,7 +1195,7 @@ Command:
     // command
     if (g::typing_command)
     {
-      term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
+      term::move_cursor({g::cmd_pos - g::visible_cmd_line.first + 1, g::screen_height - 1});
       term::show_cursor();
     }
     else
@@ -1202,10 +1213,17 @@ Command:
           {
             std::string str = ((msg->from == -1) ? "" : std::to_string(msg->from) + ": ") + msg->content;
             int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(str));
+
+            str.erase(std::remove_if(str.begin(), str.end(),
+              [](auto&& ch){return ch == '\n' || ch == '\r';}), str.end());
+
             if (a2 > 0)
               term::output(str, std::string(a2, ' '));
             else
-              term::output(str.substr(0, static_cast<int>(str.size()) + a2));
+            {
+              term::output(str.substr(0, static_cast<int>(str.size()) + a2 - 1),
+                           utils::color_256_fg(">", 9));
+            }
             g::last_message_displayed = now;
           }
           else show_info();

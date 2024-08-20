@@ -514,9 +514,9 @@ namespace czh::online
             (std::chrono::steady_clock::now() - beg);
 
         std::vector<msg::Message> msgs;
-        for(auto it = g::userdata[id].messages.rbegin(); it < g::userdata[id].messages.rend(); ++it)
+        for (auto it = g::userdata[id].messages.rbegin(); it < g::userdata[id].messages.rend(); ++it)
         {
-          if(!it->read)
+          if (!it->read)
           {
             msgs.emplace_back(*it);
             it->read = true;
@@ -565,12 +565,12 @@ namespace czh::online
         std::lock_guard<std::mutex> ml(g::mainloop_mtx);
         std::lock_guard<std::mutex> dl(g::drawing_mtx);
         auto tank = game::id_at(id);
-        if(tank == nullptr || tank->is_auto())
+        if (tank == nullptr || tank->is_auto())
         {
           res.set_content(make_response(-1, "No such user."));
           return;
         }
-        else if(tank->is_alive())
+        else if (tank->is_alive())
         {
           res.set_content(make_response(-1, "Already logined."));
           return;
@@ -666,15 +666,15 @@ namespace czh::online
       return -1;
     }
 
-    std::string content = make_request("login",id);
+    std::string content = make_request("login", id);
     auto res = cli->send_and_recv(content);
-    if(!res.has_value())
+    if (!res.has_value())
     {
       cli->reset();
       return -1;
     }
     auto [i, msg] = ser::deserialize<int, std::string>(*res);
-    if(i != 0)
+    if (i != 0)
     {
       msg::error(g::user_id, msg);
       return -1;
@@ -729,7 +729,7 @@ namespace czh::online
                        (std::chrono::steady_clock::now() - beg).count()) - delay;
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
 
-    for(auto& r : msgs)  // reverse
+    for (auto& r : msgs) // reverse
       g::userdata[g::user_id].messages.emplace_back(r);
 
     if (old_seed != g::snapshot.map.seed)
@@ -776,6 +776,4 @@ namespace czh::online
   {
     return host;
   }
-
-
 }

@@ -169,8 +169,8 @@ int main()
           break;
         case input::Input::KEY_I:
           g::curr_page = g::Page::NOTIFICATION;
-        g::output_inited = false;
-        break;
+          g::output_inited = false;
+          break;
         case input::Input::KEY_L:
         {
           if (g::game_mode == g::GameMode::CLIENT)
@@ -244,18 +244,18 @@ int main()
             g::notification_pos--;
             g::output_inited = false;
           }
-        break;
+          break;
         case input::Input::DOWN:
           if (g::notification_pos < g::userdata[g::user_id].messages.size() - 1)
           {
             g::notification_pos++;
             g::output_inited = false;
           }
-        break;
+          break;
         case input::Input::KEY_I:
           g::curr_page = g::Page::GAME;
-        g::output_inited = false;
-        break;
+          g::output_inited = false;
+          break;
         default: break;
       }
     }
@@ -264,6 +264,7 @@ int main()
       case input::Input::KEY_SLASH:
         g::typing_command = true;
         g::cmd_line.clear();
+        g::visible_cmd_line = {0, 0};
         g::cmd_pos = 0;
         g::hint.clear();
         g::hint_pos = 0;

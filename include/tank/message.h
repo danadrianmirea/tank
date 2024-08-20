@@ -28,30 +28,30 @@ namespace czh::msg
     bool read;
     long time;
   };
-  
-  bool operator<(const Message &m1, const Message &m2);
-  
-  void trace(int id, const std::string &c);
 
-  void info(int id, const std::string &c);
+  bool operator<(const Message& m1, const Message& m2);
 
-  void warn(int id, const std::string &c);
-  
-  void error(int id, const std::string &c);
-  
-  void critical(int id, const std::string &c);
+  void trace(int id, const std::string& c);
 
-  void trace(size_t id, const std::string &c);
+  void info(int id, const std::string& c);
 
-  void info(size_t id, const std::string &c);
-  
-  void warn(size_t id, const std::string &c);
-  
-  void error(size_t id, const std::string &c);
-  
-  void critical(size_t id, const std::string &c);
-  
-  int send_message(int from, int to, const std::string &msg_content, int priority = 0);
+  void warn(int id, const std::string& c);
+
+  void error(int id, const std::string& c);
+
+  void critical(int id, const std::string& c);
+
+  void trace(size_t id, const std::string& c);
+
+  void info(size_t id, const std::string& c);
+
+  void warn(size_t id, const std::string& c);
+
+  void error(size_t id, const std::string& c);
+
+  void critical(size_t id, const std::string& c);
+
+  int send_message(int from, int to, const std::string& msg_content, int priority = 0);
 
   std::optional<Message> read_a_message(size_t id);
 }

@@ -28,7 +28,7 @@ namespace czh::cmd
 {
   namespace helper
   {
-    bool is_ip(const std::string &s);
+    bool is_ip(const std::string& s);
 
     bool is_port(int s);
 
@@ -42,8 +42,10 @@ namespace czh::cmd
     std::string hint;
     bool applicable;
   };
+
   using Hints = std::vector<Hint>;
   using HintProvider = std::function<Hints(const std::string&)>;
+
   struct CommandInfo
   {
     std::string cmd;
@@ -58,7 +60,7 @@ namespace czh::cmd
 
     template<typename T>
       requires(type_list::contains_v<T, ArgTList>)
-    T arg_get(const Arg &a)
+    T arg_get(const Arg& a)
     {
       if (a.index() != type_list::index_of_v<T, ArgTList>)
       {
@@ -78,10 +80,10 @@ namespace czh::cmd
     }
 
     template<typename Func, typename List, std::size_t... index>
-    auto call_with_args_impl(Func &&func, const std::vector<Arg> &v, std::index_sequence<index...>)
+    auto call_with_args_impl(Func&& func, const std::vector<Arg>& v, std::index_sequence<index...>)
     {
       auto tmp = std::make_tuple(v[index]...);
-      auto args = std::apply([](auto &&... elems)
+      auto args = std::apply([](auto&&... elems)
       {
         return std::make_tuple(arg_get<type_list::index_at_t<index, List> >(elems)...);
       }, tmp);
@@ -89,10 +91,10 @@ namespace czh::cmd
     }
 
     template<typename List, std::size_t... index>
-    auto args_get_impl(const std::vector<Arg> &v, std::index_sequence<index...>)
+    auto args_get_impl(const std::vector<Arg>& v, std::index_sequence<index...>)
     {
       auto tmp = std::make_tuple(v[index]...);
-      auto args = std::apply([](auto &&... elems)
+      auto args = std::apply([](auto&&... elems)
       {
         return std::make_tuple(arg_get<type_list::index_at_t<index, List> >(elems)...);
       }, tmp);
@@ -100,18 +102,22 @@ namespace czh::cmd
     }
 
     template<typename Func>
-    struct get_func_args {};
+    struct get_func_args
+    {
+    };
+
     template<typename... Args>
     struct get_func_args<std::function<bool(Args...)> >
     {
       using args = type_list::TypeList<Args...>;
     };
+
     template<typename T>
     using get_func_args_t = typename get_func_args<T>::args;
   }
 
   template<typename... Args, typename Func>
-  auto call_with_args(Func &&func, const std::vector<details::Arg> &v)
+  auto call_with_args(Func&& func, const std::vector<details::Arg>& v)
   {
     if (v.size() != sizeof...(Args))
     {
@@ -122,7 +128,7 @@ namespace czh::cmd
   }
 
   template<typename List>
-  auto args_get(const std::vector<details::Arg> &v)
+  auto args_get(const std::vector<details::Arg>& v)
   {
     if (v.size() != type_list::size_of_v<List>)
     {
@@ -132,7 +138,7 @@ namespace czh::cmd
   }
 
   template<typename... Args>
-  bool args_is(const std::vector<details::Arg> &v)
+  bool args_is(const std::vector<details::Arg>& v)
   {
     static const auto expected = details::make_index<Args...>();
     if (expected.size() != v.size()) return false;
@@ -153,13 +159,13 @@ namespace czh::cmd
     std::vector<details::Arg> args;
     std::vector<std::string> error;
 
-    [[nodiscard]] bool is(const std::string &n) const
+    [[nodiscard]] bool is(const std::string& n) const
     {
       return name == n;
     }
 
     template<typename Func>
-    auto get_if(Func &&r) const
+    auto get_if(Func&& r) const
     {
       using FuncType = decltype(std::function(std::forward<Func>(r)));
       return check(std::function(std::forward<Func>(r)))
@@ -169,21 +175,21 @@ namespace czh::cmd
 
     bool assert(bool a, const std::string& err)
     {
-      if(!a)
+      if (!a)
         error.emplace_back(err);
       return a;
     }
 
   private:
     template<typename... Args>
-    bool check(std::function<bool(Args...)> &&r) const
+    bool check(std::function<bool(Args...)>&& r) const
     {
       return args_is<Args...>(args) && call_with_args<Args...>(r, args);
     }
   };
 
-  CmdCall parse(const std::string &cmd);
+  CmdCall parse(const std::string& cmd);
 
-  void run_command(size_t userid, const std::string &str);
+  void run_command(size_t userid, const std::string& str);
 }
 #endif //TANK_COMMAND_H

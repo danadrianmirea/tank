@@ -82,7 +82,7 @@ namespace czh::g
   extern bool typing_command;
   extern std::string cmd_line;
   extern size_t cmd_pos;
-  extern size_t cmd_last_cols;
+  extern std::pair<size_t, size_t> visible_cmd_line;
   extern std::vector<std::string> history;
   extern size_t history_pos;
   extern cmd::Hints hint;

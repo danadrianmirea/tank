@@ -89,7 +89,7 @@ namespace czh::g
       cmd::Hints ret{};
       if (cond.empty() || cond == s)
       {
-        for(const auto& r : g::snapshot.userinfo)
+        for (const auto& r : g::snapshot.userinfo)
           ret.emplace_back(std::to_string(r.first), true);
         return ret;
       }
@@ -276,7 +276,7 @@ namespace czh::cmd
 {
   CmdCall parse(const std::string& cmd)
   {
-    if (cmd.empty()) return {};
+    if (cmd.empty()) return {.good = false, .error = {"No command input."}};
     auto it = cmd.cbegin();
     auto skip_space = [&it, &cmd] { while (it < cmd.cend() && std::isspace(*it)) ++it; };
     skip_space();
@@ -289,27 +289,98 @@ namespace czh::cmd
     while (it < cmd.cend())
     {
       skip_space();
-      std::string temp;
-      bool maybe_int = true;
+      std::string token;
 
-      if(*it == '"')
+      if (it < cmd.cend() && (*it == '"' || *it == '\''))
       {
+        bool is_single = *it == '\'';
         ++it;
-        while(it < cmd.cend() && *it != '"')
-          temp += *it++;
-        if(it == cmd.cend() && *(it - 1) != '"')
-          return {.good =  false, .error= {"Synax Error: Expected '\"'."}};
+        bool matched = false;
+        while (it < cmd.cend())
+        {
+          if ((is_single && *it == '\'') || (!is_single && *it == '"'))
+          {
+            matched = true;
+            break;
+          }
+          if (auto ch = *it++; ch == '\\')
+          {
+            if (it < cmd.cend())
+            {
+              if (*it == '"')
+              {
+                token += '"';
+                ++it;
+              }
+              else if (*it == '\'')
+              {
+                token += '\'';
+                ++it;
+              }
+              else if (*it == '\\')
+              {
+                token += '\\';
+                ++it;
+              }
+              else if (*it == 'a')
+              {
+                token += '\a';
+                ++it;
+              }
+              else if (*it == 'b')
+              {
+                token += '\b';
+                ++it;
+              }
+              else if (*it == 'f')
+              {
+                token += '\f';
+                ++it;
+              }
+              else if (*it == 'n')
+              {
+                token += '\n';
+                ++it;
+              }
+              else if (*it == 'r')
+              {
+                token += '\r';
+                ++it;
+              }
+              else if (*it == 't')
+              {
+                token += '\t';
+                ++it;
+              }
+              else if (*it == 'v')
+              {
+                token += '\v';
+                ++it;
+              }
+              else
+                token += '\\';
+            }
+            else
+              return {.good = false, .error = {"Synax Error: Unexpected '\\' at the end."}};
+          }
+          else
+            token += ch;
+        }
+
+        if (it == cmd.cend() && !matched)
+          return {.good = false, .error = {"Synax Error: Expected '\"'."}};
         ++it;
-        args.emplace_back(temp);
+        args.emplace_back(token);
       }
-      else
+      else if (it < cmd.cend())
       {
+        bool maybe_int = true;
         while (it < cmd.cend() && !std::isspace(*it))
         {
           if (!std::isdigit(*it) && *it != '+' && *it != '-') maybe_int = false;
-          temp += *it++;
+          token += *it++;
         }
-        if (!temp.empty())
+        if (!token.empty())
         {
           if (maybe_int)
           {
@@ -317,7 +388,7 @@ namespace czh::cmd
             int a = 0;
             try
             {
-              a = std::stoi(temp);
+              a = std::stoi(token);
             }
             catch (...)
             {
@@ -326,11 +397,11 @@ namespace czh::cmd
             if (stoi_success)
               args.emplace_back(a);
             else
-              args.emplace_back(temp);
+              args.emplace_back(token);
           }
-          else if (temp == "true") args.emplace_back(true);
-          else if (temp == "false") args.emplace_back(false);
-          else args.emplace_back(temp);
+          else if (token == "true") args.emplace_back(true);
+          else if (token == "false") args.emplace_back(false);
+          else args.emplace_back(token);
         }
       }
     }
@@ -341,9 +412,10 @@ namespace czh::cmd
   {
     auto call = parse(str);
 
-    if(!call.good)
+    if (!call.good)
     {
-      msg::error(user_id, call.error[0]);
+      if (!call.error.empty())
+        msg::error(user_id, call.error[0]);
       return;
     }
 
@@ -417,7 +489,7 @@ namespace czh::cmd
       }
       else goto invalid_args;
 
-      if(g::curr_page == g::Page::NOTIFICATION)
+      if (g::curr_page == g::Page::NOTIFICATION)
         g::output_inited = false;
     }
     else if (call.is("quit"))

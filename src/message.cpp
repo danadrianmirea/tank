@@ -107,20 +107,20 @@ namespace czh::msg
     int max_priority = (std::numeric_limits<int>::min)();
     auto it = g::userdata[id].messages.rbegin();
     std::vector<decltype(it)> unread;
-    for (;it < g::userdata[id].messages.rend(); ++it)
+    for (; it < g::userdata[id].messages.rend(); ++it)
     {
       if (!it->read)
       {
-        if(it->priority > max_priority)
+        if (it->priority > max_priority)
           max_priority = it->priority;
         unread.emplace_back(it);
       }
     }
 
     // new -> old
-    for(auto& r : unread)
+    for (auto& r : unread)
     {
-      if(r->priority == max_priority)
+      if (r->priority == max_priority)
       {
         r->read = true;
         return *r;
