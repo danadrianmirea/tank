@@ -139,7 +139,7 @@ namespace czh::utils
   std::string setw(size_t w, std::string s)
   {
     auto sz = display_width(s);
-    if(sz >= w)
+    if (sz >= w)
       return s;
     s.insert(s.end(), w - sz, ' ');
     return s;

@@ -33,7 +33,7 @@ namespace czh::term
   {
     init();
   }
-  
+
   void KeyBoard::init()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -59,12 +59,12 @@ namespace czh::term
     output("\x1b[?1049h");
     flush();
   }
-  
+
   KeyBoard::~KeyBoard()
   {
     deinit();
   }
-  
+
   void KeyBoard::deinit() const
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -77,7 +77,7 @@ namespace czh::term
     output("\x1b[?1049l");
     flush();
   }
-  
+
   int KeyBoard::kbhit()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -90,7 +90,7 @@ namespace czh::term
     int nread = static_cast<int>(read(0, &ch, 1));
     new_settings.c_cc[VMIN] = 1;
     tcsetattr(0, TCSANOW, &new_settings);
-    
+
     if (nread == 1)
     {
       peek_character = ch;
@@ -99,7 +99,7 @@ namespace czh::term
     return 0;
 #endif
   }
-  
+
   int KeyBoard::getch()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -115,17 +115,17 @@ namespace czh::term
     return ch;
 #endif
   }
-  
-  void move_cursor(const TermPos &pos)
+
+  void move_cursor(const TermPos& pos)
   {
     output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f");
   }
-  
+
   void flush()
   {
     std::cout << std::flush;
   }
-  
+
   std::size_t get_height()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -139,7 +139,7 @@ namespace czh::term
     return w.ws_row;
 #endif
   }
-  
+
   std::size_t get_width()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -153,17 +153,17 @@ namespace czh::term
     return w.ws_col;
 #endif
   }
-  
+
   void clear()
   {
     output("\x1b[2J");
   }
-  
+
   void hide_cursor()
   {
     output("\x1b[?25l");
   }
-  
+
   void show_cursor()
   {
     output("\x1b[?25h");

@@ -153,7 +153,7 @@ namespace czh::input
     term::output("\x1b[K");
     // the current cmd_line
 
-    auto color = [](const std::string& s) { return utils::color_256_fg(s, 9); };
+    auto color = [](const std::string& s) { return utils::color_256_fg(s, 208); };
 
     // Too long, disable hint
     if (g::hint.empty() || g::cmd_line.size() + g::hint[g::hint_pos].hint.size() > g::screen_width - 2)
