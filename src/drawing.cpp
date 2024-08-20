@@ -969,11 +969,11 @@ Command:
             return false;
           return j == g::status_pos - g::snapshot.userinfo.size();
         };
-        for (; j < g::snapshot.tanks.size(); ++j)
+        for (auto it = g::snapshot.tanks.cbegin(); it != g::snapshot.tanks.cend(); ++j, ++it)
         {
           if (j >= beg && j < end)
           {
-            const auto& tank = g::snapshot.tanks[j];
+            const auto& tank = it->second;
             term::move_cursor({0, cursor_y++});
             if (is_active_tank_item())
             {
