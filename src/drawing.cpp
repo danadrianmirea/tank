@@ -1215,7 +1215,7 @@ Command:
             int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(str));
 
             str.erase(std::remove_if(str.begin(), str.end(),
-              [](auto&& ch){return ch == '\n' || ch == '\r';}), str.end());
+                                     [](auto&& ch) { return ch == '\n' || ch == '\r'; }), str.end());
 
             if (a2 > 0)
               term::output(str, std::string(a2, ' '));
