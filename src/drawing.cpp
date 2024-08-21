@@ -24,8 +24,8 @@
 #include <mutex>
 #include <vector>
 #include <string>
-#include <iostream>
 #include <iomanip>
+#include <ranges>
 
 namespace czh::g
 {
@@ -584,8 +584,8 @@ namespace czh::drawing
   {
     if (g::game_suspend) return;
     term::hide_cursor();
-    std::lock_guard<std::mutex> l1(g::mainloop_mtx);
-    std::lock_guard<std::mutex> l2(g::drawing_mtx);
+    std::lock_guard l1(g::mainloop_mtx);
+    std::lock_guard l2(g::drawing_mtx);
 
     static const std::string shadow_beg = "\x1b[48;5;8m";
     static const std::string shadow_end = "\x1b[49m";
@@ -838,21 +838,13 @@ Command:
 
         // User Status
         term::mvoutput({g::screen_width / 2 - 5, cursor_y++}, "User Status");
-        size_t user_id_size = std::to_string(std::max_element(g::snapshot.userinfo.begin(),
-                                                              g::snapshot.userinfo.end(),
-                                                              [](auto&& a, auto&& b)
-                                                              {
-                                                                return a.second.user_id <
-                                                                       b.second.user_id;
-                                                              })->second.user_id).size();
+        size_t user_id_size = utils::numlen(std::prev(g::snapshot.userinfo.end())->first);
         if (user_id_size < 2) user_id_size = 2;
 
-        size_t ip_size = std::max_element(g::snapshot.userinfo.begin(), g::snapshot.userinfo.end(),
-                                          [](auto&& a, auto&& b)
-                                          {
-                                            return a.second.ip.size() <
-                                                   b.second.ip.size();
-                                          })->second.ip.size();
+        auto ipsz_r = g::snapshot.userinfo
+                      | std::views::transform([](auto&& p) { return p.second.ip.size(); });
+        size_t ip_size = std::ranges::max(ipsz_r);
+
         if (ip_size == 0) ip_size = 6;
 
         size_t status_size = 7;
@@ -865,9 +857,9 @@ Command:
 
         size_t i = 0;
         auto is_active_user_item = [&i] { return i == g::status_pos; };
-        for (; i < g::snapshot.userinfo.size(); ++i)
+        for (auto it = g::snapshot.userinfo.cbegin(); it != g::snapshot.userinfo.cend(); ++i, ++it)
         {
-          auto user = g::snapshot.userinfo[i];
+          const auto& user = it->second;
           term::move_cursor({0, cursor_y++});
           if (is_active_user_item())
             term::output(shadow_beg);
@@ -899,43 +891,31 @@ Command:
 
         // Tank Status
         term::mvoutput({g::screen_width / 2 - 5, cursor_y++}, "Tank Status");
-        size_t tank_id_size = std::to_string(std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                              [](auto&& a, auto&& b)
-                                                              {
-                                                                return a.second.info.id <
-                                                                       b.second.info.id;
-                                                              })->second.info.id).size();
+        size_t tank_id_size = utils::numlen(std::prev(g::snapshot.tanks.end())->first);
+
         if (tank_id_size < 2) tank_id_size = 2;
-        size_t name_size = std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                            [](auto&& a, auto&& b)
-                                            {
-                                              return a.second.info.name.size() <
-                                                     b.second.info.name.size();
-                                            })->second.info.name.size();
+        auto namesz_r = g::snapshot.tanks
+                        | std::views::transform([](auto&& a) { return a.second.info.name.size(); });
+        size_t name_size = std::ranges::max(namesz_r);
+
         auto get_pos_size = [](const map::Pos& p)
         {
           // (x, y)
           return std::to_string(p.x).size() + std::to_string(p.y).size() + 4;
         };
-        size_t pos_size = get_pos_size(std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                        [&get_pos_size](auto&& a, auto&& b)
-                                                        {
-                                                          return get_pos_size(a.second.pos) <
-                                                                 get_pos_size(b.second.pos);
-                                                        })->second.pos);
-        size_t hp_size = std::to_string(std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                         [](auto&& a, auto&& b)
-                                                         {
-                                                           return a.second.hp <
-                                                                  b.second.hp;
-                                                         })->second.hp).size();
-        size_t atk_size = std::to_string(std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                          [](auto&& a, auto&& b)
-                                                          {
-                                                            return
-                                                                a.second.info.bullet.lethality <
-                                                                b.second.info.bullet.lethality;
-                                                          })->second.info.bullet.lethality).size();
+
+        auto possz_r = g::snapshot.tanks
+                       | std::views::transform([&get_pos_size](auto&& a) { return get_pos_size(a.second.pos); });
+        size_t pos_size = std::ranges::max(possz_r);
+
+        auto hpsz_r = g::snapshot.tanks | std::views::transform([](auto&& t) { return t.second.hp; });
+        size_t hp_size = utils::numlen(std::ranges::max(hpsz_r));
+
+
+        auto atksz_r = g::snapshot.tanks | std::views::transform(
+                         [](auto&& t) { return t.second.info.bullet.lethality; });
+        size_t atk_size = utils::numlen(std::ranges::max(atksz_r));
+
         if (atk_size < 3) atk_size = 3;
         size_t gap_size = 3;
         size_t target_size = g::screen_width - tank_id_size - name_size - pos_size - hp_size - atk_size - gap_size - 12;
@@ -1169,12 +1149,9 @@ Command:
       else if (g::game_mode == g::GameMode::SERVER)
       {
         right += "Server Mode | Port: " + std::to_string(g::online_server.get_port()) + " | ";
-        size_t active_users = 0;
-        for (auto& r : g::userdata)
-        {
-          if (r.second.active)
-            ++active_users;
-        }
+        size_t active_users = std::ranges::count_if(g::userdata | std::views::values,
+                                                    [](auto&& u) { return u.active; });
+
         right += "User: " + std::to_string(active_users) + "/" + std::to_string(g::userdata.size());
       }
       else if (g::game_mode == g::GameMode::CLIENT)
@@ -1213,10 +1190,7 @@ Command:
           {
             std::string str = ((msg->from == -1) ? "" : std::to_string(msg->from) + ": ") + msg->content;
             int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::display_width(str));
-
-            str.erase(std::remove_if(str.begin(), str.end(),
-                                     [](auto&& ch) { return ch == '\n' || ch == '\r'; }), str.end());
-
+            std::erase_if(str, [](auto&& ch) { return ch == '\n' || ch == '\r'; });
             if (a2 > 0)
               term::output(str, std::string(a2, ' '));
             else

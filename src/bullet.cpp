@@ -82,18 +82,6 @@ namespace czh::bullet
 
   std::string Bullet::get_text()
   {
-    //    std::string ret;
-    //    switch (direction)
-    //    {
-    //      case map::Direction::UP:
-    //        break;
-    //      case map::Direction::DOWN:
-    //        break;
-    //      case map::Direction::LEFT:
-    //        break;
-    //      case map::Direction::RIGHT:
-    //        break;
-    //    }
     return "**";
   }
 

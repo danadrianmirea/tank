@@ -94,7 +94,7 @@ namespace czh::archive
                               const std::map<size_t, tank::Tank*>& tanks, const std::list<bullet::Bullet*>& bullets)
   {
     map::Map ret;
-    for (auto& r : archive.map)
+    for (const auto& r : archive.map)
     {
       const auto& pa = r.second;
       map::Point p;
@@ -102,7 +102,7 @@ namespace czh::archive
       p.temporary = pa.temporary;
       p.statuses = pa.statuses;
 
-      if(pa.has_tank)
+      if (pa.has_tank)
       {
         p.tank = tanks.at(pa.tank);
         utils::tank_assert(p.tank != nullptr);
@@ -112,10 +112,10 @@ namespace czh::archive
       {
         for (auto& x : bullets)
         {
+          utils::tank_assert(x != nullptr);
           if (x->get_id() == b)
           {
             p.bullets.emplace_back(x);
-            utils::tank_assert(x != nullptr);
             break;
           }
         }
@@ -128,7 +128,7 @@ namespace czh::archive
   MapArchive Archiver::archive_map(const map::Map& map)
   {
     MapArchive ret;
-    for (auto& r : map.map)
+    for (const auto& r : map.map)
     {
       const auto& point = r.second;
       PointArchive pa
@@ -137,7 +137,7 @@ namespace czh::archive
         .temporary = point.temporary,
         .statuses = point.statuses
       };
-      if(point.tank != nullptr)
+      if (point.tank != nullptr)
       {
         pa.has_tank = true;
         pa.tank = point.tank->get_id();
@@ -170,10 +170,10 @@ namespace czh::archive
       .style = g::style
     };
 
-    for (auto& r : g::tanks)
+    for (const auto& r : g::tanks)
       ret.tanks.emplace_back(Archiver::archive_tank(r.second));
 
-    for (auto& r : g::bullets)
+    for (const auto& r : g::bullets)
       ret.bullets.emplace_back(Archiver::archive_bullet(r));
     return ret;
   }
@@ -193,13 +193,13 @@ namespace czh::archive
     g::style = archive.style;
 
     g::tanks.clear();
-    for (auto& r : archive.tanks)
+    for (const auto& r : archive.tanks)
     {
       g::tanks[r.info.id] = Archiver::load_tank(r);
     }
 
     g::bullets.clear();
-    for (auto& r : archive.bullets)
+    for (const auto& r : archive.bullets)
     {
       g::bullets.emplace_back(Archiver::load_bullet(r));
     }

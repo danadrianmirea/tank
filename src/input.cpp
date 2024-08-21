@@ -74,7 +74,7 @@ namespace czh::input
     }
     else if (tokens.size() > 1)
     {
-      auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
+      auto it = std::ranges::find_if(g::commands,
                              [a = tokens[0]](auto&& f) { return utils::begin_with(f.cmd, a); });
       if (it != g::commands.end())
       {
@@ -188,7 +188,7 @@ namespace czh::input
 
   void edit_refresh_line(bool with_hint)
   {
-    std::lock_guard<std::mutex> l(g::drawing_mtx);
+    std::lock_guard l(g::drawing_mtx);
     cmdline_refresh(with_hint);
     term::flush();
   }
@@ -230,7 +230,6 @@ namespace czh::input
       refresh = true;
     }
 
-    auto origin_width = g::cmd_pos;
     g::cmd_pos = g::cmd_line.size();
     pos_right();
     if (refresh) edit_refresh_line();
@@ -238,7 +237,6 @@ namespace czh::input
 
   void move_to_word_beginning()
   {
-    auto origin = g::cmd_pos;
     if (g::cmd_line[g::cmd_pos - 1] == ' ')
     {
       --g::cmd_pos;
@@ -259,7 +257,6 @@ namespace czh::input
 
   void move_to_word_end()
   {
-    auto origin = g::cmd_pos;
     // curr is not space
     while (g::cmd_pos < g::cmd_line.size() && g::cmd_line[g::cmd_pos] == ' ')
     {
@@ -277,10 +274,7 @@ namespace czh::input
   void move_left()
   {
     if (g::cmd_pos > 0)
-    {
-      auto origin = g::cmd_pos;
       --g::cmd_pos;
-    }
     pos_left();
     edit_refresh_line();
   }
@@ -288,10 +282,7 @@ namespace czh::input
   void move_right()
   {
     if (g::cmd_pos < g::cmd_line.size())
-    {
-      auto origin = g::cmd_pos;
       ++g::cmd_pos;
-    }
     pos_right();
     edit_refresh_line();
   }

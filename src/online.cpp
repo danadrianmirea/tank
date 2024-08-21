@@ -91,7 +91,7 @@ namespace czh::online
   void Thpool::add_task(const std::function<void()>& func)
   {
     utils::tank_assert(run, "Can not add task on stopped Thpool"); {
-      std::lock_guard<std::mutex> lock(th_mutex);
+      std::lock_guard lock(th_mutex);
       tasks.emplace([func] { func(); });
     }
     cond.notify_one();
@@ -500,8 +500,8 @@ namespace czh::online
       {
         auto [id, zone] = ser::deserialize<size_t, map::Zone>(args);
         auto beg = std::chrono::steady_clock::now();
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        //std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        //std::lock_guard dl(g::drawing_mtx);
         std::set<map::Pos> changes;
         for (auto& r : g::userdata[id].map_changes)
         {
@@ -533,8 +533,8 @@ namespace czh::online
       }
       else if (cmd == "register")
       {
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         auto id = game::add_tank();
         g::userdata[id] = g::UserData{
           .user_id = id,
@@ -550,8 +550,8 @@ namespace czh::online
       else if (cmd == "deregister")
       {
         auto id = ser::deserialize<size_t>(args);
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") deregistered.");
         g::tanks[id]->kill();
         g::tanks[id]->clear();
@@ -562,30 +562,36 @@ namespace czh::online
       else if (cmd == "login")
       {
         auto id = ser::deserialize<size_t>(args);
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        if (id == g::user_id)
+        {
+          res.set_content(make_response(-1, std::string{"Cannot login as the server user."}));
+          return;
+        }
+
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         auto tank = game::id_at(id);
         if (tank == nullptr || tank->is_auto())
         {
-          res.set_content(make_response(-1, "No such user."));
+          res.set_content(make_response(-1, std::string{"No such user."}));
           return;
         }
         else if (tank->is_alive())
         {
-          res.set_content(make_response(-1, "Already logined."));
+          res.set_content(make_response(-1, std::string{"Already logined."}));
           return;
         }
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logined.");
         game::revive(id);
         g::userdata[id].last_update = std::chrono::steady_clock::now();
         g::userdata[id].active = true;
-        res.set_content(make_response(0, "Success."));
+        res.set_content(make_response(0, std::string{"Success."}));
       }
       else if (cmd == "logout")
       {
         auto id = ser::deserialize<size_t>(args);
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logout.");
         g::tanks[id]->kill();
         g::tanks[id]->clear();
@@ -594,8 +600,8 @@ namespace czh::online
       else if (cmd == "add_auto_tank")
       {
         auto [id, zone, lvl] = ser::deserialize<size_t, map::Zone, size_t>(args);
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         game::add_auto_tank(lvl, zone, id);
       }
       else if (cmd == "run_command")
@@ -635,7 +641,7 @@ namespace czh::online
 
   std::optional<size_t> TankClient::connect(const std::string& addr_, int port_)
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     host = addr_;
     port = port_;
     if (cli->connect(addr_, port_) != 0)
@@ -657,7 +663,7 @@ namespace czh::online
 
   int TankClient::reconnect(const std::string& addr_, int port_, size_t id)
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     host = addr_;
     port = port_;
     if (cli->connect(addr_, port_) != 0)
@@ -684,7 +690,7 @@ namespace czh::online
 
   void TankClient::disconnect()
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     std::string content = make_request("logout", g::user_id);
     if (cli->send(content) < 0)
       msg::error(g::user_id, strerror(errno));
@@ -697,14 +703,14 @@ namespace czh::online
 
   int TankClient::tank_react(tank::NormalTankEvent e) const
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     std::string content = make_request("tank_react", g::user_id, e);
     return cli->send(content);
   }
 
   int TankClient::update() const
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
     std::string content = make_request("update", g::user_id, g::visible_zone.bigger_zone(10));
     auto ret = cli->send_and_recv(content);
@@ -739,14 +745,14 @@ namespace czh::online
 
   int TankClient::add_auto_tank(size_t lvl) const
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     std::string content = make_request("add_auto_tank", g::user_id, g::visible_zone, lvl);
     return cli->send(content);
   }
 
   int TankClient::run_command(const std::string& str) const
   {
-    std::lock_guard<std::mutex> l(g::online_mtx);
+    std::lock_guard l(g::online_mtx);
     std::string content = make_request("run_command", g::user_id, str);
     return cli->send(content);
   }

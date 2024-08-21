@@ -318,8 +318,8 @@ namespace czh::tank
       {
         if (close.contains(node.pos))
           continue;
-        auto oit = std::find_if(open.begin(), open.end(),
-                                [&node](auto&& p) { return p.second.pos == node.pos; });
+        auto oit = std::ranges::find_if(open,
+                                        [&node](auto&& p) { return p.second.pos == node.pos; });
         if (oit == open.end())
         {
           open.insert({node.F, node});
@@ -337,11 +337,8 @@ namespace czh::tank
           }
         }
       }
-      auto result = std::find_if(open.begin(), open.end(),
-                                 [&pred](auto&& r)
-                                 {
-                                   return pred(r.second.pos);
-                                 });
+      auto result = std::ranges::find_if(open,
+                                         [&pred](auto&& r) { return pred(r.second.pos); });
       if (result != open.end())
       {
         auto np = result->second;
@@ -409,11 +406,8 @@ namespace czh::tank
 
     if (fire_spots.empty()) return -1;
 
-    auto dest = *std::min_element(fire_spots.begin(), fire_spots.end(),
-                                  [this](auto&& a, auto&& b)
-                                  {
-                                    return map::get_distance(a, pos) < map::get_distance(b, pos);
-                                  });
+    auto dest = *std::ranges::min_element(fire_spots, std::less{},
+                                          [this](auto&& a) { return map::get_distance(a, pos); });
 
     route.clear();
     route_pos = 0;

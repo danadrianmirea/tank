@@ -18,11 +18,14 @@
 #include "tank/input.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
+
+#include <csignal>
+
 #include <chrono>
 #include <thread>
 #include <string>
 #include <vector>
-#include <csignal>
+#include <ranges>
 
 using namespace czh;
 
@@ -179,8 +182,8 @@ int main()
           }
           else
           {
-            std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-            std::lock_guard<std::mutex> dl(g::drawing_mtx);
+            std::lock_guard ml(g::mainloop_mtx);
+            std::lock_guard dl(g::drawing_mtx);
             game::add_auto_tank(utils::randnum<int>(1, 11));
           }
         }
@@ -283,8 +286,8 @@ int main()
         break;
       case input::Input::KEY_CTRL_C:
       {
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         game::quit();
         std::exit(0);
       }
@@ -292,8 +295,8 @@ int main()
 #ifdef SIGCONT
       case input::Input::KEY_CTRL_Z:
       {
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         if (g::game_mode == g::GameMode::CLIENT)
         {
           g::online_client.disconnect();
@@ -305,13 +308,13 @@ int main()
         else if (g::game_mode == g::GameMode::SERVER)
         {
           g::online_server.stop();
-          for (auto& r : g::userdata)
+          for (auto& id : g::userdata | std::views::keys)
           {
-            if (r.first == 0) continue;
-            g::tanks[r.first]->kill();
-            g::tanks[r.first]->clear();
-            delete g::tanks[r.first];
-            g::tanks.erase(r.first);
+            if (id == 0) continue;
+            g::tanks[id]->kill();
+            g::tanks[id]->clear();
+            delete g::tanks[id];
+            g::tanks.erase(id);
           }
           g::userdata = {{0, g::userdata[0]}};
           g::game_mode = g::GameMode::NATIVE;

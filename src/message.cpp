@@ -16,7 +16,7 @@
 #include "tank/utils.h"
 
 #include <string>
-#include <numeric>
+#include <ranges>
 
 namespace czh::msg
 {
@@ -35,8 +35,8 @@ namespace czh::msg
     };
     if (to == -1)
     {
-      for (auto& r : g::userdata)
-        r.second.messages.emplace_back(msg);
+      for (auto& r : g::userdata | std::views::values)
+        r.messages.emplace_back(msg);
     }
     else
     {

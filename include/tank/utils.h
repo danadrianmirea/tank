@@ -199,5 +199,17 @@ namespace czh::utils
 
   //std::string color_rgb_fg(const std::string &str, const RGB& rgb);
   //std::string color_rgb_bg(const std::string &str, const RGB& rgb);
+
+  template<typename T>
+  concept Integer = std::is_integral_v<T>;
+
+  template<Integer I>
+  I numlen(I num)
+  {
+    I len = 0;
+    for (; num > 0; ++len)
+      num /= 10;
+    return len;
+  }
 }
 #endif

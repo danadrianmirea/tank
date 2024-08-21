@@ -13,7 +13,6 @@
 //   limitations under the License.
 #include "tank/game.h"
 #include "tank/game_map.h"
-#include "tank/command.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
 #include "tank/bullet.h"
@@ -22,6 +21,7 @@
 #include <mutex>
 #include <vector>
 #include <list>
+#include <ranges>
 
 namespace czh::g
 {
@@ -190,13 +190,10 @@ namespace czh::game
       }
     }
 
-    for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
+    for (auto& tank : g::tanks | std::views::values)
     {
-      auto tank = *it;
-      if (!tank.second->is_alive() && !tank.second->has_cleared())
-      {
-        tank.second->clear();
-      }
+      if (!tank->is_alive() && !tank->has_cleared())
+        tank->clear();
     }
   }
 
@@ -204,7 +201,7 @@ namespace czh::game
   {
     if (!g::game_running) return;
 
-    std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
+    std::lock_guard l(g::tank_reacting_mtx);
     if (id_at(id)->is_alive())
     {
       g::normal_tank_events.emplace_back(id, event);
@@ -215,31 +212,29 @@ namespace czh::game
   {
     if (!g::game_running) return;
 
-    std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-    std::lock_guard<std::mutex> dl(g::drawing_mtx);
+    std::lock_guard ml(g::mainloop_mtx);
+    std::lock_guard dl(g::drawing_mtx);
 
     //auto tank
-    for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
+    for (auto& tank : g::tanks | std::views::values)
     {
-      utils::tank_assert(it->second != nullptr);
-      if (it->second->is_alive())
+      utils::tank_assert(tank != nullptr);
+      if (tank->is_alive())
       {
-        if (it->second->is_auto())
-          dynamic_cast<tank::AutoTank*>(it->second)->react();
+        if (tank->is_auto())
+          dynamic_cast<tank::AutoTank*>(tank)->react();
         else
         {
-          auto n = dynamic_cast<tank::NormalTank*>(it->second);
+          auto n = dynamic_cast<tank::NormalTank*>(tank);
           if (n->is_auto_driving())
-          {
-            g::normal_tank_events.emplace_back(it->first, n->get_auto_event());
-          }
+            g::normal_tank_events.emplace_back(tank->get_id(), n->get_auto_event());
         }
       }
     }
 
     //normal tank
     {
-      std::lock_guard<std::mutex> tl(g::tank_reacting_mtx);
+      std::lock_guard tl(g::tank_reacting_mtx);
       for (auto& r : g::normal_tank_events)
       {
         auto tank = dynamic_cast<tank::NormalTank*>(id_at(r.first));
@@ -284,38 +279,34 @@ namespace czh::game
     }
 
     // bullet move
-    for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
+    for (auto& b : g::bullets)
     {
-      if ((*it)->is_alive())
-      {
-        (*it)->react();
-      }
+      if (b->is_alive())
+        b->react();
     }
 
-    for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
+    for (auto& b : g::bullets)
     {
-      if (!(*it)->is_alive()) continue;
+      if (!b->is_alive()) continue;
 
-      if ((g::game_map.count(map::Status::BULLET, (*it)->get_pos()) > 1)
-          || g::game_map.has(map::Status::TANK, (*it)->get_pos()))
+      if ((g::game_map.count(map::Status::BULLET, b->get_pos()) > 1)
+          || g::game_map.has(map::Status::TANK, b->get_pos()))
       {
         int lethality = 0;
         int attacker = -1;
-        auto bullets_instance = g::game_map.at((*it)->get_pos()).get_bullets();
+        auto bullets_instance = g::game_map.at(b->get_pos()).get_bullets();
         utils::tank_assert(!bullets_instance.empty());
-        for (auto it1 = bullets_instance.begin(); it1 != bullets_instance.end(); ++it1)
+        for (auto& bi : bullets_instance)
         {
-          if ((*it1)->is_alive())
-          {
-            lethality += (*it1)->get_lethality();
-          }
-          (*it1)->kill();
-          attacker = (*it1)->get_tank();
+          if (bi->is_alive())
+            lethality += bi->get_lethality();
+          bi->kill();
+          attacker = static_cast<int>(bi->get_tank());
         }
 
-        if (g::game_map.has(map::Status::TANK, (*it)->get_pos()))
+        if (g::game_map.has(map::Status::TANK, b->get_pos()))
         {
-          if (auto tank = g::game_map.at((*it)->get_pos()).get_tank(); tank != nullptr)
+          if (auto tank = g::game_map.at(b->get_pos()).get_tank(); tank != nullptr)
           {
             auto tank_attacker = id_at(attacker);
             utils::tank_assert(tank_attacker != nullptr);
@@ -329,9 +320,7 @@ namespace czh::game
             }
             tank->attacked(lethality);
             if (!tank->is_alive())
-            {
               msg::info(-1, tank->get_name() + " was killed by " + tank_attacker->get_name());
-            }
           }
         }
       }

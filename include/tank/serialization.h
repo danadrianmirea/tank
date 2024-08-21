@@ -13,24 +13,21 @@
 //   limitations under the License.
 #ifndef TANK_SERIALIZATION_H
 #define TANK_SERIALIZATION_H
-#pragma once
 
 #include <type_traits>
 #include <vector>
 #include <string>
 #include <map>
-#include <queue>
 #include <iterator>
-#include <bitset>
-#include <variant>
 #include <tuple>
-
+#include <variant>
+#include <array>
 #include <cstring>
 
 namespace czh::ser
 {
   template<typename T>
-  T deserialize(const std::string& str);
+  std::decay_t<T> deserialize(const std::string& str);
 
   template<typename T>
   std::string serialize(const T& item);
@@ -43,67 +40,33 @@ namespace czh::ser
       operator T();
     };
 
-    template<typename T>
-    struct is_map : public std::false_type
+    template<typename T, template<typename...> typename Primary>
+    struct is_specialization_of : public std::false_type
     {
     };
 
-    template<typename... Arg>
-    struct is_map<std::map<Arg...> > : public std::true_type
+    template<template<typename...> typename Primary, typename... Args>
+    struct is_specialization_of<Primary<Args...>, Primary> : public std::true_type
     {
     };
 
-    template<typename... Arg>
-    struct is_map<std::multimap<Arg...> > : public std::true_type
-    {
-    };
+    template<typename T, template<typename...> typename Primary>
+    constexpr bool is_specialization_of_v = is_specialization_of<T, Primary>::value;
 
     template<typename T>
-    constexpr bool is_map_v = is_map<T>::value;
+    constexpr bool is_map_v = is_specialization_of_v<T, std::map>;
 
     template<typename T>
-    struct is_variant : public std::false_type
-    {
-    };
-
-    template<typename... Arg>
-    struct is_variant<std::variant<Arg...> > : public std::true_type
-    {
-    };
+    constexpr bool is_serializable_tuple_like_v =
+        (is_specialization_of_v<T, std::pair>
+         || is_specialization_of_v<T, std::tuple>)
+        && std::is_default_constructible_v<T>;
 
     template<typename T>
-    constexpr bool is_variant_v = is_variant<T>::value;
-
-    template<typename T>
-    struct is_tuple : public std::false_type
-    {
-    };
-
-    template<typename... Arg>
-    struct is_tuple<std::tuple<Arg...> > : public std::true_type
-    {
-    };
-
-    template<typename T>
-    constexpr bool is_tuple_v = is_tuple<T>::value;
-
-    template<typename T>
-    struct is_pair : public std::false_type
-    {
-    };
-
-    template<typename F, typename S>
-    struct is_pair<std::pair<F, S> > : public std::true_type
-    {
-    };
-
-    template<typename T>
-    constexpr bool is_pair_v = is_pair<T>::value;
-
-    template<typename T> requires std::is_aggregate_v<std::remove_cvref_t<T> > || is_tuple_v<std::remove_cvref_t<T> >
+      requires std::is_aggregate_v<std::remove_cvref_t<T> > || is_serializable_tuple_like_v<std::remove_cvref_t<T> >
     consteval auto field_num(auto&&... args)
     {
-      if constexpr (is_tuple_v<T>)
+      if constexpr (is_serializable_tuple_like_v<T>)
       {
         return std::tuple_size<T>();
       }
@@ -120,27 +83,10 @@ namespace czh::ser
       }
     }
 
-    constexpr int supported_field_num = 64;
-
-    template<typename T, typename Fn> requires std::is_aggregate_v<std::remove_cvref_t<T> > || is_tuple_v<
-                                                 std::remove_cvref_t<T> >
+    template<typename T, typename Fn>
+      requires std::is_aggregate_v<std::remove_cvref_t<T> > || is_serializable_tuple_like_v<std::remove_cvref_t<T> >
     constexpr auto field_for_each(T&& t, Fn&& fn)
     {
-      // Python:
-      //fmt = "else if constexpr (num == {0}) {{auto&& [{1}] = std::forward<T>(t);{2}}}"
-      //
-      //print(fmt)
-      //num = int(input("num: "))
-      //for i in range(2, num + 2):
-      //    str0 = str(i - 1)
-      //    str1 = ""
-      //    for j in range(1, i):
-      //        str1 += "_" + str(j) + ", "
-      //    str1 = str1[:-2]
-      //    str2 = ""
-      //    for j in range(1, i):
-      //        str2 += "fn(" + "_" + str(j) + ");"
-      //    print(fmt.format(str0, str1, str2))
       constexpr auto num = field_num<std::remove_cvref_t<T> >();
 // @formatter:off
 // clang-format off
@@ -207,9 +153,10 @@ namespace czh::ser
       else if constexpr (num == 61) {auto&& [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61] = std::forward<T>(t);fn(_1);fn(_2);fn(_3);fn(_4);fn(_5);fn(_6);fn(_7);fn(_8);fn(_9);fn(_10);fn(_11);fn(_12);fn(_13);fn(_14);fn(_15);fn(_16);fn(_17);fn(_18);fn(_19);fn(_20);fn(_21);fn(_22);fn(_23);fn(_24);fn(_25);fn(_26);fn(_27);fn(_28);fn(_29);fn(_30);fn(_31);fn(_32);fn(_33);fn(_34);fn(_35);fn(_36);fn(_37);fn(_38);fn(_39);fn(_40);fn(_41);fn(_42);fn(_43);fn(_44);fn(_45);fn(_46);fn(_47);fn(_48);fn(_49);fn(_50);fn(_51);fn(_52);fn(_53);fn(_54);fn(_55);fn(_56);fn(_57);fn(_58);fn(_59);fn(_60);fn(_61);}
       else if constexpr (num == 62) {auto&& [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62] = std::forward<T>(t);fn(_1);fn(_2);fn(_3);fn(_4);fn(_5);fn(_6);fn(_7);fn(_8);fn(_9);fn(_10);fn(_11);fn(_12);fn(_13);fn(_14);fn(_15);fn(_16);fn(_17);fn(_18);fn(_19);fn(_20);fn(_21);fn(_22);fn(_23);fn(_24);fn(_25);fn(_26);fn(_27);fn(_28);fn(_29);fn(_30);fn(_31);fn(_32);fn(_33);fn(_34);fn(_35);fn(_36);fn(_37);fn(_38);fn(_39);fn(_40);fn(_41);fn(_42);fn(_43);fn(_44);fn(_45);fn(_46);fn(_47);fn(_48);fn(_49);fn(_50);fn(_51);fn(_52);fn(_53);fn(_54);fn(_55);fn(_56);fn(_57);fn(_58);fn(_59);fn(_60);fn(_61);fn(_62);}
       else if constexpr (num == 63) {auto&& [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63] = std::forward<T>(t);fn(_1);fn(_2);fn(_3);fn(_4);fn(_5);fn(_6);fn(_7);fn(_8);fn(_9);fn(_10);fn(_11);fn(_12);fn(_13);fn(_14);fn(_15);fn(_16);fn(_17);fn(_18);fn(_19);fn(_20);fn(_21);fn(_22);fn(_23);fn(_24);fn(_25);fn(_26);fn(_27);fn(_28);fn(_29);fn(_30);fn(_31);fn(_32);fn(_33);fn(_34);fn(_35);fn(_36);fn(_37);fn(_38);fn(_39);fn(_40);fn(_41);fn(_42);fn(_43);fn(_44);fn(_45);fn(_46);fn(_47);fn(_48);fn(_49);fn(_50);fn(_51);fn(_52);fn(_53);fn(_54);fn(_55);fn(_56);fn(_57);fn(_58);fn(_59);fn(_60);fn(_61);fn(_62);fn(_63);}
-      else if constexpr (num == 64) {auto&& [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64] = std::forward<T>(t);fn(_1);fn(_2);fn(_3);fn(_4);fn(_5);fn(_6);fn(_7);fn(_8);fn(_9);fn(_10);fn(_11);fn(_12);fn(_13);fn(_14);fn(_15);fn(_16);fn(_17);fn(_18);fn(_19);fn(_20);fn(_21);fn(_22);fn(_23);fn(_24);fn(_25);fn(_26);fn(_27);fn(_28);fn(_29);fn(_30);fn(_31);fn(_32);fn(_33);fn(_34);fn(_35);fn(_36);fn(_37);fn(_38);fn(_39);fn(_40);fn(_41);fn(_42);fn(_43);fn(_44);fn(_45);fn(_46);fn(_47);fn(_48);fn(_49);fn(_50);fn(_51);fn(_52);fn(_53);fn(_54);fn(_55);fn(_56);fn(_57);fn(_58);fn(_59);fn(_60);fn(_61);fn(_62);fn(_63);fn(_64);}      else
+      else if constexpr (num == 64) {auto&& [_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64] = std::forward<T>(t);fn(_1);fn(_2);fn(_3);fn(_4);fn(_5);fn(_6);fn(_7);fn(_8);fn(_9);fn(_10);fn(_11);fn(_12);fn(_13);fn(_14);fn(_15);fn(_16);fn(_17);fn(_18);fn(_19);fn(_20);fn(_21);fn(_22);fn(_23);fn(_24);fn(_25);fn(_26);fn(_27);fn(_28);fn(_29);fn(_30);fn(_31);fn(_32);fn(_33);fn(_34);fn(_35);fn(_36);fn(_37);fn(_38);fn(_39);fn(_40);fn(_41);fn(_42);fn(_43);fn(_44);fn(_45);fn(_46);fn(_47);fn(_48);fn(_49);fn(_50);fn(_51);fn(_52);fn(_53);fn(_54);fn(_55);fn(_56);fn(_57);fn(_58);fn(_59);fn(_60);fn(_61);fn(_62);fn(_63);fn(_64);}
+      else
       {
-        static_assert(num <= supported_field_num, "too many fields");
+        static_assert(num <= 64, "too many fields");
       }
 // clang-format on
 // @formatter:off
@@ -217,25 +164,14 @@ namespace czh::ser
 
     struct not_implemented_tag {};
     struct trivially_copy_tag {};
+    struct pointer_tag {};
     struct int_tag {};
     struct enum_tag {};
     struct container_tag {};
     struct string_tag {};
     struct map_tag {};
-    struct variant_tag {};
-    struct pair_tag {};
-    struct tuple_tag {};
+    struct array_tag {};
     struct struct_tag {};
-    template<typename T>
-    struct dispatch_tag;
-
-    template<typename T>
-    using dispatch_tag_t = typename dispatch_tag<T>::tag;
-
-    template<typename T>
-    constexpr bool is_serializable_basic_type_v =
-        std::is_trivially_copyable_v<T> || std::is_same_v<T, std::string> || is_map_v<T> || is_pair_v<T> || is_tuple_v<T>;
-
 
     template<typename BeginIt, typename EndIt>
     concept ItRange =
@@ -259,10 +195,11 @@ namespace czh::ser
 
     template<typename T>
     concept SerializableContainer =
-    Container<T> && requires(T value)
+    Container<T> &&
+    requires(T value)
     {
       { value.insert(std::end(value), std::declval<decltype(*std::begin(value))>()) };
-      { value.size() };
+      requires std::is_default_constructible_v<T>;
     };
 
     template<typename T, typename U = void>
@@ -280,120 +217,108 @@ namespace czh::ser
     constexpr bool is_serializable_container_v = is_serializable_container<T>::value;
 
     template<typename T>
-    constexpr bool is_serializable_struct_v =
-    !is_container_v<T>
-    && std::is_aggregate_v<T>;
+    constexpr bool is_serializable_struct_v = !is_container_v<T> && std::is_aggregate_v<T> && std::is_default_constructible_v<T>;
 
     template<typename T>
-    struct is_serializable
+    auto dispatch_tag()
     {
-      static constexpr bool value = (is_serializable_container_v<T>
-                                     || is_serializable_basic_type_v<T>
-                                     || is_serializable_struct_v<T>);
-    };
-
-    template<typename T>
-    struct dispatch_tag
-    {
-    private:
       using R = std::remove_cvref_t<T>;
-    public:
-      using tag =
-      std::conditional_t<std::is_integral_v<R>, int_tag,
-          std::conditional_t<std::is_enum_v<R>, enum_tag,
-              std::conditional_t<std::is_same_v<R, std::string>, string_tag,
-                  std::conditional_t<is_map_v<R>, map_tag,
-                    std::conditional_t<is_variant_v<R>, variant_tag,
-                      std::conditional_t<is_pair_v<R>, pair_tag,
-                          std::conditional_t<is_tuple_v<R>, tuple_tag,
-                              std::conditional_t<is_serializable_container_v<R>, container_tag,
-                                  std::conditional_t<is_serializable_struct_v<R>, struct_tag,
-                                      std::conditional_t<std::is_trivially_copyable_v<R>, trivially_copy_tag,
-                                          not_implemented_tag>>>>>>>>>>;
-    };
+      if constexpr(std::is_array_v<R>) return array_tag{};
+      else if constexpr(std::is_pointer_v<R>) return pointer_tag{};
+      else if constexpr(std::is_integral_v<R>) return int_tag{};
+      else if constexpr(std::is_enum_v<R>) return enum_tag{};
+      else if constexpr(std::is_same_v<R, std::string>) return string_tag{};
+      else if constexpr(is_map_v<R>) return map_tag{};
+      else if constexpr(is_serializable_container_v<R>) return container_tag{};
+      else if constexpr(is_serializable_struct_v<R> || is_serializable_tuple_like_v<R>) return struct_tag{};
+      else if constexpr(std::is_default_constructible_v<R> && std::is_trivially_copyable_v<R>) return trivially_copy_tag{};
+      else return not_implemented_tag{};
+    }
+
+    template<typename T, typename Tag>
+    constexpr bool tag_is = std::is_same_v<decltype(dispatch_tag<T>()), Tag>;
 
     template<typename T>
-    std::string internal_serialize(not_implemented_tag, const T &item) = delete;
+    std::string internal_serialize(not_implemented_tag, const T &item);
 
     template<typename T>
-    T internal_deserialize(not_implemented_tag, const std::string &str) = delete;
+    T internal_deserialize(not_implemented_tag, const std::string &str);
 
     template<typename T>
     std::string internal_serialize(int_tag, const T &item)
     {
-      if constexpr(std::is_signed_v<T>)
+      if constexpr(sizeof(T) > 1)
       {
-        return internal_serialize<std::make_unsigned_t<T>>(int_tag{},
-                                                           static_cast<std::make_unsigned_t<T>>((item << 1) ^ (item >> (sizeof(T) * 8 - 1))));
+        if constexpr(std::is_signed_v<T>)
+        {
+          return internal_serialize<std::make_unsigned_t<T>>(int_tag{},
+                                                        static_cast<std::make_unsigned_t<T>>((item << 1) ^ (item
+                                                            >> (sizeof(T) * 8 - 1))));
+        }
+        else
+        {
+          std::string data(((sizeof(T) * 8) / 7) * 8 + 1, '\0');
+          size_t pos = 0;
+          auto num = item;
+          while (num >= 128)
+          {
+            data[pos++] = 0x80 | static_cast<char>(num & 0x7f);
+            num >>= 7;
+          }
+          data[pos++] = static_cast<char>(num);
+          return data.substr(0, pos);
+        }
       }
       else
       {
-        std::string data;
-        data.resize(8);
-        size_t pos = 0;
-        auto num = item;
-        while (num >= 128)
-        {
-          char a = num % 128;
-          num = (num - a) / 128;
-          std::bitset<8> byte(a);
-          byte.flip(7);
-          char tmp = static_cast<char>(byte.to_ulong());
-          if (pos + 8 >= data.size())
-            data.resize(data.size() + 2);
-          std::memcpy(data.data() + pos, &tmp, 1);
-          pos += 1;
-        }
-        char a = num % 128;
-        std::bitset<8> byte(a);
-        char tmp = static_cast<char>(byte.to_ulong());
-        std::memcpy(data.data() + pos, &tmp, 1);
-        pos += 1;
-        return data.substr(0, pos);
+        return internal_serialize(trivially_copy_tag{}, item);
       }
     }
 
     template<typename T>
     T internal_deserialize(int_tag, const std::string &str)
     {
-      if constexpr(std::is_signed_v<T>)
+      if constexpr(sizeof(T) > 1)
       {
-        auto v = internal_deserialize<std::make_unsigned_t<T>>(int_tag{}, str);
-        return static_cast<T>((v >> 1) ^ -(v & 1));
+        if constexpr(std::is_signed_v<T>)
+        {
+          auto v = internal_deserialize<std::make_unsigned_t<T>>(int_tag{}, str);
+          return static_cast<T>((v >> 1) ^ -(v & 1));
+        }
+        else
+        {
+          T result = 0;
+          size_t shift = 0;
+          for (auto &c : str)
+          {
+            result |= static_cast<T>(c & 0x7f) << shift;
+            shift += 7;
+          }
+          return result;
+        }
       }
       else
       {
-        std::bitset<sizeof(T) * 8> result;
-        size_t pos = 0;
-        for (auto &c: str)
-        {
-          std::bitset<8> byte(c);
-          for (size_t i = 0; i < 7 && pos < result.size(); ++i, ++pos)
-            result[pos] = byte[i];
-        }
-        return static_cast<T>(result.to_ullong());
+        return internal_deserialize<T>(trivially_copy_tag{}, str);
       }
     }
 
     template<typename T>
     std::string internal_serialize(enum_tag, const T &item)
     {
-      return internal_serialize(int_tag{},
-                                static_cast<std::underlying_type_t<std::remove_cvref_t<T>>>(item));
+      return internal_serialize(int_tag{}, static_cast<std::underlying_type_t<std::remove_cvref_t<T>>>(item));
     }
 
     template<typename T>
     T internal_deserialize(enum_tag, const std::string &str)
     {
-      return static_cast<T>(internal_deserialize<std::underlying_type_t<std::remove_cvref_t<T>>>(int_tag{},
-                                str));
+      return static_cast<T>(internal_deserialize<std::underlying_type_t<std::remove_cvref_t<T>>>(int_tag{}, str));
     }
 
     template<typename T>
     std::string internal_serialize(trivially_copy_tag, const T &item)
     {
-      std::string data;
-      data.resize(sizeof(T));
+      std::string data(sizeof(T), '\0');
       std::memcpy(data.data(), &item, sizeof(T));
       return data;
     }
@@ -421,9 +346,9 @@ namespace czh::ser
     template<typename T>
     std::string internal_serialize(map_tag, const T &item)
     {
-      std::vector<std::pair<std::remove_const_t<typename T::key_type>,
-          typename T::mapped_type>> v;
-      for(auto& r : item)
+      std::vector<std::pair<std::remove_cvref_t<typename T::key_type>,
+          std::remove_cvref_t<typename T::mapped_type>>> v;
+      for (auto &r: item)
         v.emplace_back(r);
       return serialize(v);
     }
@@ -431,36 +356,34 @@ namespace czh::ser
     template<typename T>
     T internal_deserialize(map_tag, const std::string &str)
     {
-      auto v = deserialize<std::vector<std::pair<std::remove_const_t<typename T::key_type>,
-          typename T::mapped_type>>>(str);
+      auto v = deserialize<std::vector<std::pair<std::remove_cvref_t<typename T::key_type>,
+          std::remove_cvref_t<typename T::mapped_type>>>>(str);
       T ret;
-      for(auto& r : v)
-        ret.emplace_hint(ret.end(), r);
+      for (auto &r: v)
+        ret.emplace_hint(ret.end(), std::move(r));
       return ret;
     }
 
     template<typename T>
-    void item_serialize_helper(std::string& buf, size_t& pos, const T& item)
+    void item_serialize_helper(std::string &buf, size_t &pos, const T &item)
     {
-      if constexpr(std::is_same_v<dispatch_tag_t<T>, trivially_copy_tag>
-          || std::is_same_v<dispatch_tag_t<T>, int_tag> || std::is_same_v<dispatch_tag_t<T>, enum_tag>)
+      if constexpr(tag_is<T, trivially_copy_tag> || tag_is<T, int_tag> || tag_is<T, enum_tag>)
       {
+        // These types don't need a size indicator.
         auto data = serialize<T>(static_cast<T>(const_cast<std::remove_const_t<decltype(item)>>(item)));
         if (buf.size() - pos < data.size())
-        {
-          buf.resize(buf.size() + data.size() + 128);
-        }
+          buf.resize(buf.size() + data.size() + 64);
         for (size_t i = 0; i < data.size(); ++i, ++pos)
           buf[pos] = data[i];
       }
       else
       {
         auto data = serialize<T>(static_cast<T>(const_cast<std::remove_const_t<decltype(item)>>(item)));
+
         auto data_size = internal_serialize(int_tag{}, data.size());
         if (buf.size() - pos < data.size() + data_size.size())
-        {
-          buf.resize(buf.size() + data.size() + data_size.size() + 128);
-        }
+          buf.resize(buf.size() + data.size() + data_size.size() + 64);
+
         for (size_t i = 0; i < data_size.size(); ++i, ++pos)
           buf[pos] = data_size[i];
         for (size_t i = 0; i < data.size(); ++i, ++pos)
@@ -469,9 +392,10 @@ namespace czh::ser
     }
 
     template<typename T>
-    auto item_deserialize_helper(const std::string& str, size_t& pos)
+    auto item_deserialize_helper(const std::string &str, size_t &pos)
     {
-      if constexpr(std::is_same_v<dispatch_tag_t<T>, trivially_copy_tag>)
+      // These types don't need a size indicator.
+      if constexpr(tag_is<T, trivially_copy_tag> || (tag_is<T, int_tag> && sizeof(T) == 1))
       {
         std::string buf = str.substr(pos, sizeof(T));
         pos += sizeof(T);
@@ -479,15 +403,17 @@ namespace czh::ser
       }
       else
       {
+        // if tag is not trivially_copy_tag, it must be int, string.
+        // and they all have an integer at the beginning indicating its size(trivially_copy) or value(int).
         size_t int_size = 1;
         for (size_t i = pos; i < str.size(); ++i, ++int_size)
         {
-          if (std::bitset<8>(str[i])[7] == 0) break;
+          if ((str[i] & 0x80) == 0) break;
         }
         std::string buf = str.substr(pos, int_size);
         pos += int_size;
 
-        if constexpr(std::is_same_v<dispatch_tag_t<T>, int_tag> || std::is_same_v<dispatch_tag_t<T>, enum_tag>)
+        if constexpr(tag_is<T, int_tag> || tag_is<T, enum_tag>)
         {
           return deserialize<std::remove_cvref_t<T>>(buf);
         }
@@ -501,75 +427,12 @@ namespace czh::ser
       }
     }
 
-    // TODO: variant
-
-    template<typename T>
-    std::string internal_serialize(variant_tag, const T &item) = delete;
-    // {
-    //   std::string buf;
-    //   buf.resize(128);
-    //   size_t pos = 0;
-    //
-    //   item_serialize_helper(buf, pos, item.index());
-    //   std::visit(
-    //       [&buf, &pos, &item](auto &&e)
-    //       {
-    //         item_serialize_helper(buf, pos, item);
-    //       }, item);
-    //   return buf.substr(0, pos);
-    // }
-
-    template<typename T>
-    T internal_deserialize(variant_tag, const std::string &str) = delete;
-    // {
-    //   if (str.empty()) return T{};
-    //   T ret;
-    //
-    //
-    //
-    //   // size_t pos = 0;
-    //   //
-    //   // auto index = item_deserialize_helper<size_t>(str, pos);
-    //
-    //   return ret;
-    // }
-
-    template<typename T>
-    std::string internal_serialize(pair_tag, const T &item)
-    {
-      std::string buf;
-      buf.resize(128);
-      size_t pos = 0;
-
-      item_serialize_helper<typename T::first_type>(buf, pos, item.first);
-      item_serialize_helper<typename T::second_type>(buf, pos, item.second);
-
-      return buf.substr(0, pos);
-    }
-
-    template<typename T>
-    [[nodiscard]]T internal_deserialize(pair_tag, const std::string &str)
-    {
-      if (str.empty()) return T{};
-      T ret;
-      size_t pos = 0;
-      auto first = item_deserialize_helper<typename T::first_type>(str, pos);
-      auto second = item_deserialize_helper<typename T::second_type>(str, pos);
-      // Note:
-      // The order of evaluation of function arguments is NOT specified in C++,
-      // so don't do something like this:
-      //      return std::make_pair(item_deserialize_helper<typename T::first_type>(str, pos),
-      //                            item_deserialize_helper<typename T::second_type>(str, pos));
-      return std::make_pair(first, second);
-    }
-
     template<typename T>
     std::string internal_serialize(container_tag, const T &item)
     {
-      std::string buf;
-      buf.resize(128);
+      std::string buf(64, '\0');
       size_t pos = 0;
-      for (auto &r: item)
+      for (const auto& r : item)
         item_serialize_helper(buf, pos, r);
       return buf.substr(0, pos);
     }
@@ -577,12 +440,12 @@ namespace czh::ser
     template<typename T>
     T internal_deserialize(container_tag, const std::string &str)
     {
-      if(str.empty()) return T{};
+      if (str.empty()) return T{};
       T ret;
-      for(size_t i = 0; i < str.size();)
+      using value_type = std::remove_cvref_t<decltype(*std::begin(ret))>;
+      for (size_t i = 0; i < str.size();)
       {
-        ret.insert(std::end(ret),
-                   std::move(item_deserialize_helper<typename T::value_type>(str, i)));
+        ret.insert(std::end(ret), std::move(item_deserialize_helper<value_type>(str, i)));
       }
       return ret;
     }
@@ -590,54 +453,78 @@ namespace czh::ser
     template<typename T>
     std::string internal_serialize(struct_tag, const T &item)
     {
-      std::string buf;
-      buf.resize(128);
+      std::string buf(64, '\0');
       size_t pos = 0;
-      field_for_each(item, [&buf, &pos](auto&& r){ item_serialize_helper(buf, pos, r);});
+      field_for_each(item, [&buf, &pos](auto &&r) { item_serialize_helper(buf, pos, r); });
       return buf.substr(0, pos);
     }
 
     template<typename T>
     T internal_deserialize(struct_tag, const std::string &str)
     {
-      if(str.empty()) return T{};
+      if (str.empty()) return T{};
       T ret;
       size_t pos = 0;
-      field_for_each(ret, [&str, &pos](auto&& r){ r = std::move(item_deserialize_helper<decltype(r)>(str, pos));});
+      field_for_each(ret, [&str, &pos](auto &&r) { r = std::move(item_deserialize_helper<decltype(r)>(str, pos)); });
       return ret;
     }
 
-
     template<typename T>
-    std::string internal_serialize(tuple_tag, const T &item)
+    std::string internal_serialize(pointer_tag, const T &item)
     {
-      return internal_serialize(struct_tag{}, item);
+      return serialize(*item);
     }
 
     template<typename T>
-    T internal_deserialize(tuple_tag, const std::string &str)
+    T internal_deserialize(pointer_tag, const std::string &str)
     {
-      return internal_deserialize<T>(struct_tag{}, str);
+      using value_type = std::remove_pointer_t<T>;
+      T item = new value_type();
+      *item = deserialize<value_type>(str);
+      return item;
+    }
+
+    template<typename T>
+    std::string internal_serialize(array_tag, const T &item)
+    {
+      using value_type = std::remove_extent_t<T>;
+      std::string buf(64, '\0');
+      size_t pos = 0;
+      for (size_t i = 0; i < sizeof(T) / sizeof(value_type); ++i)
+        item_serialize_helper(buf, pos, item[i]);
+      return buf.substr(0, pos);
+    }
+
+    template<typename T>
+    std::decay_t<T> internal_deserialize(array_tag, const std::string &str)
+    {
+      using value_type = std::remove_extent_t<T>;
+      if (str.empty()) return nullptr;
+      auto ret = new value_type[sizeof(T) / sizeof(value_type)];
+      for (size_t i = 0, pos = 0; i < str.size() && pos < sizeof(T) / sizeof(value_type); ++pos)
+      {
+        ret[pos] = std::move(item_deserialize_helper<value_type>(str, i));
+      }
+      return ret;
     }
   }
 
   template<typename T>
-  std::string serialize(const T& item)
+  std::string serialize(const T &item)
   {
-    static_assert(!std::is_same_v<details::dispatch_tag_t<T>, details::not_implemented_tag>,
-                  "Type must overload ser::serialize() and ser::deserialize()");
-    return details::internal_serialize<T>(details::dispatch_tag_t<T>{}, item);
+    static_assert(!details::tag_is<T, details::not_implemented_tag>,
+    "This type must overload ser::serialize() and ser::deserialize()");
+    return details::internal_serialize<T>(details::dispatch_tag<T>(), item);
   }
 
 
   template<typename T>
-  T deserialize(const std::string &str)
+  std::decay_t<T> deserialize(const std::string &str)
   {
-    static_assert(!std::is_same_v<details::dispatch_tag_t<T>, details::not_implemented_tag>,
-                  "Type must overload ser::serialize() and ser::deserialize()");
-    return details::internal_deserialize<T>(details::dispatch_tag_t<T>{}, str);
+    static_assert(!details::tag_is<T, details::not_implemented_tag>,
+      "This type must overload ser::serialize() and ser::deserialize()");
+    return details::internal_deserialize<T>(details::dispatch_tag<T>(), str);
   }
-
 
   template<typename ...Args> requires (sizeof...(Args) > 1)
   std::string serialize(Args&& ...args)

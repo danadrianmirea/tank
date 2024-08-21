@@ -16,6 +16,7 @@
 #include "tank/globals.h"
 #include "tank/utils.h"
 #include <vector>
+#include <ranges>
 
 namespace czh::g
 {
@@ -29,10 +30,8 @@ namespace czh::map
 {
   void add_changes(const Pos& p)
   {
-    for (auto& r : g::userdata)
-    {
-      r.second.map_changes.insert(p);
-    }
+    for (auto& r : g::userdata | std::views::values)
+      r.map_changes.insert(p);
   }
 
   Zone Zone::bigger_zone(int i) const
@@ -101,7 +100,7 @@ namespace czh::map
 
   void Point::remove_status(const Status& status)
   {
-    statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
+    std::erase(statuses, status);
     switch (status)
     {
       case Status::BULLET:
@@ -124,12 +123,12 @@ namespace czh::map
 
   [[nodiscard]] bool Point::has(const Status& status) const
   {
-    return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
+    return std::ranges::find(statuses, status) != statuses.end();
   }
 
   [[nodiscard]] std::size_t Point::count(const Status& status) const
   {
-    return std::count(statuses.cbegin(), statuses.cend(), status);
+    return std::ranges::count(statuses, status);
   }
 
   bool Pos::operator==(const Pos& pos) const

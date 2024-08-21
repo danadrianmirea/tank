@@ -109,7 +109,7 @@ namespace czh::cmd
     template<typename... Args>
     struct get_func_args<std::function<bool(Args...)> >
     {
-      using args = type_list::TypeList<Args...>;
+      using args = type_list::TypeList<std::remove_cvref_t<Args>...>;
     };
 
     template<typename T>
@@ -184,7 +184,7 @@ namespace czh::cmd
     template<typename... Args>
     bool check(std::function<bool(Args...)>&& r) const
     {
-      return args_is<Args...>(args) && call_with_args<Args...>(r, args);
+      return args_is<std::remove_cvref_t<Args>...>(args) && call_with_args<std::remove_cvref_t<Args>...>(r, args);
     }
   };
 

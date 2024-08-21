@@ -458,14 +458,14 @@ namespace czh::cmd
     }
     else if (call.is("notification"))
     {
-      //std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      //std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       if (call.args.empty())
       {
         g::curr_page = g::Page::NOTIFICATION;
         g::output_inited = false;
       }
-      else if (auto v = call.get_if([&call](std::string option)
+      else if (auto v = call.get_if([&call](const std::string& option)
       {
         return call.assert(option == "clear" || option == "read", "Invalid option.");
       }); v)
@@ -479,7 +479,7 @@ namespace czh::cmd
             r.read = true;
         }
       }
-      else if (call.get_if([&call](std::string option, std::string f)
+      else if (call.get_if([&call](const std::string& option, const std::string& f)
       {
         return call.assert(option == "clear" && f == "read", "Invalid option.");
       }))
@@ -496,8 +496,8 @@ namespace czh::cmd
     {
       if (call.args.empty())
       {
-        std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-        std::lock_guard<std::mutex> dl(g::drawing_mtx);
+        std::lock_guard ml(g::mainloop_mtx);
+        std::lock_guard dl(g::drawing_mtx);
         term::move_cursor({0, g::screen_height + 1});
         term::output("\033[?25h");
         msg::info(user_id, "Quitting.");
@@ -527,8 +527,8 @@ namespace czh::cmd
     }
     else if (call.is("fill"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       int from_x;
       int from_y;
       int to_x;
@@ -593,8 +593,8 @@ namespace czh::cmd
     }
     else if (call.is("tp"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       int id = -1;
       map::Pos to_pos;
       auto check = [](const map::Pos& p)
@@ -651,8 +651,8 @@ namespace czh::cmd
     }
     else if (call.is("revive"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       int id;
       if (call.args.empty())
       {
@@ -676,8 +676,8 @@ namespace czh::cmd
     }
     else if (call.is("summon"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       int num, lvl;
       if (auto v = call.get_if(
         [&call](int num, int lvl)
@@ -711,8 +711,8 @@ namespace czh::cmd
     }
     else if (call.is("kill"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       if (call.args.empty())
       {
         for (auto& r : g::tanks)
@@ -737,8 +737,8 @@ namespace czh::cmd
     }
     else if (call.is("clear"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       if (g::curr_page == g::Page::STATUS)
         g::output_inited = false;
       if (call.args.empty())
@@ -772,7 +772,7 @@ namespace czh::cmd
         }
         msg::info(user_id, "Cleared all tanks.");
       }
-      else if (auto v = call.get_if([&call](std::string f)
+      else if (auto v = call.get_if([&call](const std::string& f)
       {
         return call.assert(f == "death", "Invalid option.");
       }); v)
@@ -833,10 +833,10 @@ namespace czh::cmd
     }
     else if (call.is("set"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [&call](int id, std::string key, int value)
+        [&call](int id, const std::string& key, int value)
         {
           if (!utils::is_valid_id(id))
           {
@@ -893,7 +893,7 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [&call](int id, std::string key, std::string value)
+        [&call](int id, const std::string& key, const std::string& value)
         {
           return call.assert(utils::is_valid_id(id), "Invalid ID.")
                  && call.assert(key == "name", "Invalid option.");
@@ -909,7 +909,7 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [&call](std::string key, int arg)
+        [&call](const std::string& key, int arg)
         {
           if (key == "tick")
             return call.assert(arg > 0, "Tick shall > 0.");
@@ -950,7 +950,7 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [&call, &user_id](std::string key, bool arg)
+        [&call, &user_id](const std::string& key, bool arg)
         {
           return call.assert(key == "unsafe", "Invalid option.")
                  && call.assert(g::unsafe_mode || user_id == g::user_id,
@@ -965,7 +965,7 @@ namespace czh::cmd
           msg::info(user_id, "Unsafe mode disbaled.");
       }
       else if (auto v = call.get_if(
-        [&call](int id, std::string f, std::string key, int value)
+        [&call](int id, const std::string& f, const std::string& key, int value)
         {
           bool ok = call.assert(utils::is_valid_id(id), "Invalid ID.")
                     && call.assert(f == "bullet" && (key == "hp" || key == "lethality" || key == "range"),
@@ -1003,13 +1003,13 @@ namespace czh::cmd
     }
     else if (call.is("server"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      //std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      //std::lock_guard dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [&call](std::string key, int port)
+        [&call](const std::string& key, int port)
         {
-          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to start server mode.")
-                 && call.assert(key == "start", "Invalid option")
+          return call.assert(key == "start", "Invalid option")
+                 && call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to start server mode.")
                  && call.assert(utils::is_port(port), "Invalid port.");
         }); v)
       {
@@ -1020,10 +1020,10 @@ namespace czh::cmd
         msg::info(user_id, "Server started at " + std::to_string(port));
       }
       else if (auto v = call.get_if(
-        [&call](std::string key)
+        [&call](const std::string& key)
         {
-          return call.assert(g::game_mode == g::GameMode::SERVER, "Invalid request to stop server mode.")
-                 && call.assert(key == "stop", "Invalid option.");
+          return call.assert(key == "stop", "Invalid option.")
+                 && call.assert(g::game_mode == g::GameMode::SERVER, "Invalid request to stop server mode.");
         }); v)
       {
         g::online_server.stop();
@@ -1043,10 +1043,10 @@ namespace czh::cmd
     }
     else if (call.is("connect"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       if (auto v = call.get_if(
-        [&call](std::string ip, int port)
+        [&call](const std::string& ip, int port)
         {
           return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
                  && call.assert(utils::is_ip(ip), "Invalid IP.")
@@ -1067,7 +1067,7 @@ namespace czh::cmd
         }
       }
       else if (auto v = call.get_if(
-        [&call](std::string ip, int port, std::string f, int id)
+        [&call](const std::string& ip, int port, const std::string& f, int id)
         {
           return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
                  && call.assert(utils::is_ip(ip), "Invalid IP.")
@@ -1115,19 +1115,19 @@ namespace czh::cmd
       int id = -1;
       std::string msg;
       if (auto v = call.get_if(
-        [&call](int id, std::string msg)
+        [&call](int id, const std::string& msg)
         {
           return call.assert(utils::is_valid_id(id), "Invalid ID.");
         }); v)
       {
         std::tie(id, msg) = *v;
       }
-      else if (auto v = call.get_if([](std::string msg) { return true; }); v)
+      else if (auto v = call.get_if([](const std::string& msg) { return true; }); v)
       {
         std::tie(msg) = *v;
       }
       else goto invalid_args;
-      int ret = msg::send_message(user_id, id, msg);
+      int ret = msg::send_message(static_cast<int>(user_id), id, msg);
       if (ret == 0)
         msg::info(user_id, "Message sent.");
       else
@@ -1135,11 +1135,11 @@ namespace czh::cmd
     }
     else if (call.is("save"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [&call, &user_id](std::string fn)
+        [&call, &user_id](const std::string& fn)
         {
           return call.assert(g::unsafe_mode || user_id == g::user_id,
                              "This command can only be executed by the server itself. (see '/help' for a workaround)");
@@ -1157,17 +1157,17 @@ namespace czh::cmd
       }
 
       auto archive = ser::serialize(archive::archive());
-      out.write(archive.c_str(), archive.size());
+      out.write(archive.c_str(), static_cast<std::streamsize>(archive.size()));
       out.close();
       msg::info(user_id, "Saved to '" + filename + "'.");
     }
     else if (call.is("load"))
     {
-      std::lock_guard<std::mutex> ml(g::mainloop_mtx);
-      std::lock_guard<std::mutex> dl(g::drawing_mtx);
+      std::lock_guard ml(g::mainloop_mtx);
+      std::lock_guard dl(g::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
-        [&call, &user_id](std::string fn)
+        [&call, &user_id](const std::string& fn)
         {
           return call.assert(g::unsafe_mode || user_id == g::user_id,
                              "This command can only be executed by the server itself. (see '/help' for a workaround)");
