@@ -17,6 +17,7 @@
 
 #include <string>
 #include <ranges>
+#include <optional>
 
 namespace czh::msg
 {
