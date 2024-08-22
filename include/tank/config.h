@@ -11,33 +11,21 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_MESSAGE_H
-#define TANK_MESSAGE_H
+#ifndef TANK_CONFIG_H
+#define TANK_CONFIG_H
 #pragma once
 
-#include "utils/utils.h"
-
-#include <string>
 #include <chrono>
-#include <ranges>
-#include <format>
-#include <map>
-#include <numeric>
 
-namespace czh::msg
+namespace czh::cfg
 {
-  struct Message
+  struct Config
   {
-    size_t from;
-    std::string content;
-    int priority;
-    bool read;
-    long time;
+    std::chrono::milliseconds tick;
+    std::chrono::milliseconds msg_ttl;
+    bool unsafe_mode;
+    long long_pressing_threshold;
   };
-
-  inline bool operator<(const Message& m1, const Message& m2)
-  {
-    return m1.priority < m2.priority;
-  }
+  extern Config config;
 }
 #endif

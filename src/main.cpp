@@ -11,13 +11,16 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/globals.h"
 #include "tank/command.h"
 #include "tank/game.h"
 #include "tank/drawing.h"
 #include "tank/input.h"
-#include "tank/utils.h"
+#include "tank/config.h"
+#include "tank/online.h"
 #include "tank/tank.h"
+#include "tank/term.h"
+#include "tank/broadcast.h"
+#include "tank/utils/utils.h"
 
 #include <csignal>
 
@@ -31,15 +34,15 @@ using namespace czh;
 
 void react(tank::NormalTankEvent event)
 {
-  if (g::snapshot.tanks[g::user_id].is_alive)
+  if (draw::state.snapshot.tanks[g::state.id].is_alive)
   {
-    if (g::game_mode == g::GameMode::CLIENT)
+    if (g::state.mode == g::Mode::CLIENT)
     {
-      int ret = g::online_client.tank_react(event);
+      int ret = online::cli.tank_react(event);
     }
     else
     {
-      game::tank_react(g::user_id, event);
+      g::tank_react(g::state.id, event);
     }
   }
 }
@@ -47,9 +50,9 @@ void react(tank::NormalTankEvent event)
 #ifdef SIGCONT
 void sighandler(int)
 {
-  g::keyboard.init();
-  g::output_inited = false;
-  g::game_suspend = false;
+  term::keyboard.init();
+  draw::state.inited = false;
+  g::state.suspend = false;
 }
 #endif
 
@@ -64,15 +67,15 @@ int main()
       while (true)
       {
         std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-        if (g::game_mode == g::GameMode::NATIVE)
+        if (g::state.mode == g::Mode::NATIVE)
         {
-          game::mainloop();
+          g::mainloop();
         }
-        else if (g::game_mode == g::GameMode::SERVER)
+        else if (g::state.mode == g::Mode::SERVER)
         {
-          game::mainloop();
+          g::mainloop();
           std::vector<size_t> disconnected;
-          for (auto& r : g::userdata)
+          for (auto& r : g::state.users)
           {
             if (r.first == 0 || !r.second.active) continue;
             auto d = std::chrono::duration_cast<std::chrono::seconds>
@@ -84,52 +87,52 @@ int main()
           }
           for (auto& r : disconnected)
           {
-            msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
-            g::tanks[r]->kill();
-            g::tanks[r]->clear();
-            g::userdata[r].active = false;
-            if (g::curr_page == g::Page::STATUS)
-              g::output_inited = false;
+            bc::info(-1, "{} ({}) disconnected.", g::state.users[r].ip, r);
+            g::state.tanks[r]->kill();
+            g::state.tanks[r]->clear();
+            g::state.users[r].active = false;
+            if (g::state.page == g::Page::STATUS)
+              draw::state.inited = false;
           }
         }
-        else if (g::game_mode == g::GameMode::CLIENT)
+        else if (g::state.mode == g::Mode::CLIENT)
         {
-          if (g::client_failed_attempts > 10)
+          if (online::state.client_failed_attempts > 10)
           {
-            g::online_client.disconnect();
-            g::game_mode = g::GameMode::NATIVE;
-            g::userdata = {
+            online::cli.disconnect();
+            g::state.mode = g::Mode::NATIVE;
+            g::state.users = {
               {
                 0, g::UserData{
                   .user_id = 0,
-                  .messages = g::userdata[g::user_id].messages
+                  .messages = g::state.users[g::state.id].messages
                 }
               }
             };
-            g::user_id = 0;
-            g::tank_focus = 0;
-            g::output_inited = false;
-            g::client_failed_attempts = 0;
-            msg::critical(g::user_id, "Disconnected due to network issues.");
+            g::state.id = 0;
+            draw::state.focus = 0;
+            draw::state.inited = false;
+            online::state.client_failed_attempts = 0;
+            bc::critical(g::state.id, "Disconnected due to network issues.");
           }
         }
-        auto ret = drawing::update_snapshot();
-        if (ret == 0) drawing::draw();
+        auto ret = draw::update_snapshot();
+        if (ret == 0) draw::draw();
 
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
-        if (g::tick > cost)
+        if (cfg::config.tick > cost)
         {
-          std::this_thread::sleep_for(g::tick - cost);
+          std::this_thread::sleep_for(cfg::config.tick - cost);
         }
       }
     }
   );
-  game::add_tank(map::Pos{0, 0});
+  g::add_tank(map::Pos{0, 0}, 0);
   while (true)
   {
     input::Input i = input::get_input();
-    if (g::curr_page == g::Page::GAME)
+    if (g::state.page == g::Page::GAME)
     {
       switch (i)
       {
@@ -167,97 +170,97 @@ int main()
           react(tank::NormalTankEvent::FIRE);
           break;
         case input::Input::KEY_O:
-          g::curr_page = g::Page::STATUS;
-          g::output_inited = false;
+          g::state.page = g::Page::STATUS;
+          draw::state.inited = false;
           break;
         case input::Input::KEY_I:
-          g::curr_page = g::Page::NOTIFICATION;
-          g::output_inited = false;
+          g::state.page = g::Page::NOTIFICATION;
+          draw::state.inited = false;
           break;
         case input::Input::KEY_L:
         {
-          if (g::game_mode == g::GameMode::CLIENT)
+          if (g::state.mode == g::Mode::CLIENT)
           {
-            int ret = g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
+            int ret = online::cli.add_auto_tank(utils::randnum<int>(1, 11));
           }
           else
           {
             std::lock_guard ml(g::mainloop_mtx);
-            std::lock_guard dl(g::drawing_mtx);
-            game::add_auto_tank(utils::randnum<int>(1, 11));
+            std::lock_guard dl(draw::drawing_mtx);
+            g::add_auto_tank(utils::randnum<int>(1, 11), draw::state.visible_zone, 0);
           }
         }
         break;
         default: break;
       }
     }
-    else if (g::curr_page == g::Page::HELP)
+    else if (g::state.page == g::Page::HELP)
     {
       switch (i)
       {
         case input::Input::UP:
-          if (g::help_pos != 0)
+          if (draw::state.help_pos != 0)
           {
-            g::help_pos--;
-            g::output_inited = false;
+            draw::state.help_pos--;
+            draw::state.inited = false;
           }
           break;
         case input::Input::DOWN:
-          if (g::help_pos < g::help_text.size() - 1)
+          if (draw::state.help_pos < draw::state.help_text.size() - 1)
           {
-            g::help_pos++;
-            g::output_inited = false;
+            draw::state.help_pos++;
+            draw::state.inited = false;
           }
           break;
         default: break;
       }
     }
-    else if (g::curr_page == g::Page::STATUS)
+    else if (g::state.page == g::Page::STATUS)
     {
       switch (i)
       {
         case input::Input::UP:
-          if (g::status_pos != 0)
+          if (draw::state.status_pos != 0)
           {
-            g::status_pos--;
-            g::output_inited = false;
+            draw::state.status_pos--;
+            draw::state.inited = false;
           }
           break;
         case input::Input::DOWN:
-          if (g::status_pos < g::snapshot.tanks.size() + g::snapshot.userinfo.size() - 1)
+          if (draw::state.status_pos < draw::state.snapshot.tanks.size() - 1)
           {
-            g::status_pos++;
-            g::output_inited = false;
+            draw::state.status_pos++;
+            draw::state.inited = false;
           }
           break;
         case input::Input::KEY_O:
-          g::curr_page = g::Page::GAME;
-          g::output_inited = false;
+          g::state.page = g::Page::GAME;
+          draw::state.inited = false;
           break;
         default: break;
       }
     }
-    else if (g::curr_page == g::Page::NOTIFICATION)
+    else if (g::state.page == g::Page::NOTIFICATION)
     {
       switch (i)
       {
         case input::Input::UP:
-          if (g::notification_pos != 0)
+          if (draw::state.notification_pos != 0)
           {
-            g::notification_pos--;
-            g::output_inited = false;
+            draw::state.notification_pos--;
+            draw::state.inited = false;
           }
           break;
         case input::Input::DOWN:
-          if (g::notification_pos < g::userdata[g::user_id].messages.size() - 1)
+          if (draw::state.notification_pos < g::state.users[g::state.id].messages.size() - 1)
           {
-            g::notification_pos++;
-            g::output_inited = false;
+            draw::state.notification_pos++;
+            draw::state.inited = false;
           }
           break;
         case input::Input::KEY_I:
-          g::curr_page = g::Page::GAME;
-          g::output_inited = false;
+          g::state.page = g::Page::GAME;
+          draw::state.inited = false;
           break;
         default: break;
       }
@@ -265,30 +268,30 @@ int main()
     switch (i)
     {
       case input::Input::KEY_SLASH:
-        g::typing_command = true;
-        g::cmd_line.clear();
-        g::visible_cmd_line = {0, 0};
-        g::cmd_pos = 0;
-        g::hint.clear();
-        g::hint_pos = 0;
-        g::history.emplace_back("");
-        g::history_pos = g::history.size() - 1;
+        input::state.typing_command = true;
+        input::state.line.clear();
+        input::state.visible_line = {0, 0};
+        input::state.pos = 0;
+        input::state.hint.clear();
+        input::state.hint_pos = 0;
+        input::state.history.emplace_back("");
+        input::state.history_pos = input::state.history.size() - 1;
         input::edit_refresh_line();
         if (auto c = input::get_input(); c == input::Input::COMMAND)
         {
-          cmd::run_command(g::user_id, g::cmd_line);
+          cmd::run_command(g::state.id, input::state.line);
         }
-        g::typing_command = false;
+        input::state.typing_command = false;
         break;
       case input::Input::KEY_ENTER:
-        g::curr_page = g::Page::GAME;
-        g::output_inited = false;
+        g::state.page = g::Page::GAME;
+        draw::state.inited = false;
         break;
       case input::Input::KEY_CTRL_C:
       {
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        game::quit();
+        std::lock_guard dl(draw::drawing_mtx);
+        g::quit();
         std::exit(0);
       }
       break;
@@ -296,31 +299,31 @@ int main()
       case input::Input::KEY_CTRL_Z:
       {
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        if (g::game_mode == g::GameMode::CLIENT)
+        std::lock_guard dl(draw::drawing_mtx);
+        if (g::state.mode == g::Mode::CLIENT)
         {
-          g::online_client.disconnect();
-          g::user_id = 0;
-          g::tank_focus = g::user_id;
-          g::output_inited = false;
-          g::game_mode = g::GameMode::NATIVE;
+          online::cli.disconnect();
+          g::state.id = 0;
+          draw::state.focus = g::state.id;
+          draw::state.inited = false;
+          g::state.mode = g::Mode::NATIVE;
         }
-        else if (g::game_mode == g::GameMode::SERVER)
+        else if (g::state.mode == g::Mode::SERVER)
         {
-          g::online_server.stop();
-          for (auto& id : g::userdata | std::views::keys)
+          online::svr.stop();
+          for (auto& id : g::state.users | std::views::keys)
           {
             if (id == 0) continue;
-            g::tanks[id]->kill();
-            g::tanks[id]->clear();
-            delete g::tanks[id];
-            g::tanks.erase(id);
+            g::state.tanks[id]->kill();
+            g::state.tanks[id]->clear();
+            delete g::state.tanks[id];
+            g::state.tanks.erase(id);
           }
-          g::userdata = {{0, g::userdata[0]}};
-          g::game_mode = g::GameMode::NATIVE;
+          g::state.users = {{0, g::state.users[0]}};
+          g::state.mode = g::Mode::NATIVE;
         }
-        g::game_suspend = true;
-        g::keyboard.deinit();
+        g::state.suspend = true;
+        term::keyboard.deinit();
         raise(SIGSTOP);
       }
       break;

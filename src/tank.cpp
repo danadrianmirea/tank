@@ -14,28 +14,15 @@
 #include "tank/game.h"
 #include "tank/tank.h"
 #include "tank/game_map.h"
-#include "tank/globals.h"
 #include "tank/bullet.h"
-#include "tank/utils.h"
+#include "tank/utils/utils.h"
 #include <map>
 #include <set>
 #include <list>
 #include <functional>
 
-namespace czh::g
-{
-  size_t next_bullet_id = 0;
-}
-
 namespace czh::tank
 {
-  Tank::Tank(const info::TankInfo& info_, map::Pos pos_)
-    : info(info_), hp(info_.max_hp), pos(pos_), direction(map::Direction::UP),
-      hascleared(false)
-  {
-    g::game_map.add_tank(this, pos);
-  }
-
   void Tank::kill()
   {
     attacked(hp);
@@ -44,7 +31,7 @@ namespace czh::tank
   int Tank::up()
   {
     direction = map::Direction::UP;
-    int ret = g::game_map.tank_up(pos);
+    int ret = map::map.tank_up(pos);
     if (ret == 0)
     {
       pos.y++;
@@ -55,7 +42,7 @@ namespace czh::tank
   int Tank::down()
   {
     direction = map::Direction::DOWN;
-    int ret = g::game_map.tank_down(pos);
+    int ret = map::map.tank_down(pos);
     if (ret == 0)
     {
       pos.y--;
@@ -66,7 +53,7 @@ namespace czh::tank
   int Tank::left()
   {
     direction = map::Direction::LEFT;
-    int ret = g::game_map.tank_left(pos);
+    int ret = map::map.tank_left(pos);
     if (ret == 0)
     {
       pos.x--;
@@ -77,7 +64,7 @@ namespace czh::tank
   int Tank::right()
   {
     direction = map::Direction::RIGHT;
-    int ret = g::game_map.tank_right(pos);
+    int ret = map::map.tank_right(pos);
     if (ret == 0)
     {
       pos.x++;
@@ -87,43 +74,17 @@ namespace czh::tank
 
   int Tank::fire()
   {
-    auto i = info.bullet;
-    i.id = g::next_bullet_id++;
-    g::bullets.emplace_back(
-      new bullet::Bullet(i, info.id, get_pos(), get_direction()));
-    int ret = g::game_map.add_bullet(g::bullets.back(), get_pos());
+    g::state.bullets.emplace_back(
+      new bullet::Bullet(g::state.next_bullet_id++, id, pos, direction,
+                         bullet_hp, bullet_lethality, bullet_range));
+    int ret = map::map.add_bullet(g::state.bullets.back(), pos);
     return ret;
-  }
-
-  [[nodiscard]] bool Tank::is_auto() const
-  {
-    return info.type == info::TankType::AUTO;
   }
 
   [[nodiscard]] std::size_t Tank::get_id() const
   {
-    return info.id;
+    return id;
   }
-
-  std::string& Tank::get_name()
-  {
-    return info.name;
-  }
-
-  const std::string& Tank::get_name() const
-  {
-    return info.name;
-  }
-
-  [[nodiscard]] int Tank::get_hp() const { return hp; }
-
-  [[nodiscard]] int& Tank::get_hp() { return hp; }
-
-  [[nodiscard]] int Tank::get_max_hp() const { return info.max_hp; }
-
-  [[nodiscard]] const info::TankInfo& Tank::get_info() const { return info; }
-
-  [[nodiscard]] info::TankInfo& Tank::get_info() { return info; }
 
   [[nodiscard]] bool Tank::is_alive() const
   {
@@ -137,49 +98,24 @@ namespace czh::tank
 
   void Tank::clear()
   {
-    g::game_map.remove_status(map::Status::TANK, get_pos());
+    map::map.remove_status(map::Status::TANK, pos);
     hascleared = true;
-  }
-
-  map::Pos& Tank::get_pos()
-  {
-    return pos;
   }
 
   void Tank::attacked(int lethality_)
   {
     hp -= lethality_;
     if (hp < 0) hp = 0;
-    if (hp > info.max_hp) hp = info.max_hp;
-  }
-
-  [[nodiscard]] const map::Pos& Tank::get_pos() const
-  {
-    return pos;
-  }
-
-  [[nodiscard]] map::Direction& Tank::get_direction()
-  {
-    return direction;
-  }
-
-  [[nodiscard]] const map::Direction& Tank::get_direction() const
-  {
-    return direction;
-  }
-
-  [[nodiscard]] info::TankType Tank::get_type() const
-  {
-    return info.type;
+    if (hp > max_hp) hp = max_hp;
   }
 
   void Tank::revive(const map::Pos& newpos)
   {
-    hp = info.max_hp;
+    hp = max_hp;
     if (is_alive() && !hascleared) return;
     hascleared = false;
     pos = newpos;
-    g::game_map.add_tank(this, pos);
+    map::map.add_tank(this, pos);
   }
 
   AutoTankEvent get_pos_direction(const map::Pos& from, const map::Pos& to)
@@ -218,7 +154,7 @@ namespace czh::tank
 
     static auto check = [](const map::Pos& p)
     {
-      return !g::game_map.has(map::Status::WALL, p);
+      return !map::map.has(map::Status::WALL, p);
     };
     std::vector<Node> ret;
 
@@ -254,7 +190,7 @@ namespace czh::tank
   bool is_fire_spot(int range, const map::Pos& pos, const map::Pos& target_pos, bool curr_at_pos)
   {
     if (pos == target_pos) return false;
-    if (g::game_map.has(map::Status::WALL, pos) || (!curr_at_pos && g::game_map.has(map::Status::TANK, pos)))
+    if (map::map.has(map::Status::WALL, pos) || (!curr_at_pos && map::map.has(map::Status::TANK, pos)))
       return false;
     int x = target_pos.x - pos.x;
     int y = target_pos.y - pos.y;
@@ -265,7 +201,7 @@ namespace czh::tank
       for (int i = a + 1; i < b; ++i)
       {
         map::Pos tmp = {pos.x, i};
-        if (g::game_map.has(map::Status::WALL, tmp) || g::game_map.has(map::Status::TANK, tmp))
+        if (map::map.has(map::Status::WALL, tmp) || map::map.has(map::Status::TANK, tmp))
           return false;
       }
     }
@@ -276,7 +212,7 @@ namespace czh::tank
       for (int i = a + 1; i < b; ++i)
       {
         map::Pos tmp = {i, pos.y};
-        if (g::game_map.has(map::Status::WALL, tmp) || g::game_map.has(map::Status::TANK, tmp))
+        if (map::map.has(map::Status::WALL, tmp) || map::map.has(map::Status::TANK, tmp))
           return false;
       }
     }
@@ -357,14 +293,14 @@ namespace czh::tank
 
   int AutoTank::find_route()
   {
-    auto target_pos = game::id_at(target_id)->get_pos();
+    auto target_pos = g::id_at(target_id)->pos;
 
     std::set<map::Pos> fire_spots;
     // X
-    for (int i = target_pos.x - info.bullet.range; i <= target_pos.x + info.bullet.range; ++i)
+    for (int i = target_pos.x - bullet_range; i <= target_pos.x + bullet_range; ++i)
     {
       map::Pos tmp(i, target_pos.y);
-      if (is_fire_spot(info.bullet.range, tmp, target_pos, false))
+      if (is_fire_spot(bullet_range, tmp, target_pos, false))
       {
         if (tmp.x < target_pos.x)
         {
@@ -382,11 +318,11 @@ namespace czh::tank
     }
 
     // Y
-    for (int i = target_pos.y - info.bullet.range; i <= target_pos.y + info.bullet.range; ++i)
+    for (int i = target_pos.y - bullet_range; i <= target_pos.y + bullet_range; ++i)
     {
       map::Pos tmp(target_pos.x, i);
       // if spot A is in left and is good, then the spots between A and the dest is good.
-      if (is_fire_spot(info.bullet.range, tmp, target_pos, false))
+      if (is_fire_spot(bullet_range, tmp, target_pos, false))
       {
         if (tmp.y < target_pos.y)
         {
@@ -528,7 +464,7 @@ namespace czh::tank
         for (int i = from.y; i <= to.y; ++i)
         {
           map::Pos p{from.x, i};
-          if (g::game_map.has(map::Status::WALL, p) || g::game_map.has(map::Status::TANK, p))
+          if (map::map.has(map::Status::WALL, p) || map::map.has(map::Status::TANK, p))
             return false;
         }
       }
@@ -539,7 +475,7 @@ namespace czh::tank
         for (int i = from.x; i <= to.x; ++i)
         {
           map::Pos p{i, from.y};
-          if (g::game_map.has(map::Status::WALL, p) || g::game_map.has(map::Status::TANK, p))
+          if (map::map.has(map::Status::WALL, p) || map::map.has(map::Status::TANK, p))
             return false;
         }
       }
@@ -586,26 +522,26 @@ namespace czh::tank
 
   void AutoTank::react()
   {
-    if (++gap_count < info.gap) return;
+    if (++gap_count < gap) return;
     gap_count = 0;
 
-    auto target_ptr = game::id_at(target_id);
+    auto target_ptr = g::id_at(target_id);
     bool good_fire_spot = target_ptr != nullptr && target_ptr->is_alive()
-                          && is_fire_spot(info.bullet.range, pos, target_ptr->get_pos(), true);
+                          && is_fire_spot(bullet_range, pos, target_ptr->pos, true);
     has_good_target = good_fire_spot;
     // If arrived and not in good spot, then find route.
     if (route_pos >= route.size() && !good_fire_spot)
     {
       has_good_target = false;
-      for (int i = get_pos().x - 15; i < get_pos().x + 15; ++i)
+      for (int i = pos.x - 15; i < pos.x + 15; ++i)
       {
-        for (int j = get_pos().y - 15; j < get_pos().y + 15; ++j)
+        for (int j = pos.y - 15; j < pos.y + 15; ++j)
         {
-          if (i == get_pos().x && j == get_pos().y) continue;
+          if (i == pos.x && j == pos.y) continue;
 
-          if (g::game_map.at(i, j).has(map::Status::TANK))
+          if (map::map.at(i, j).has(map::Status::TANK))
           {
-            auto t = g::game_map.at(i, j).get_tank();
+            auto t = map::map.at(i, j).get_tank();
             utils::tank_assert(t != nullptr);
             if (t->is_alive())
             {
@@ -630,12 +566,12 @@ namespace czh::tank
     if (good_fire_spot)
     {
       // no need to move
-      gap_count = info.gap - 5;
+      gap_count = gap - 5;
       route_pos = 0;
       route.clear();
       // correct direction
-      int x = get_pos().x - target_ptr->get_pos().x;
-      int y = get_pos().y - target_ptr->get_pos().y;
+      int x = pos.x - target_ptr->pos.x;
+      int y = pos.y - target_ptr->pos.y;
       if (x > 0)
       {
         direction = map::Direction::LEFT;

@@ -17,10 +17,10 @@
 #include "tank/command.h"
 #include "tank/game_map.h"
 #include "tank/game.h"
-#include "tank/globals.h"
 #include "tank/drawing.h"
-#include "tank/utils.h"
-#include "tank/serialization.h"
+#include "tank/broadcast.h"
+#include "tank/utils/utils.h"
+#include "tank/utils/serialization.h"
 
 #include <unistd.h>
 #include <netinet/tcp.h>
@@ -34,17 +34,16 @@
 #include <utility>
 #include <vector>
 
-namespace czh::g
-{
-  online::TankServer online_server{};
-  online::TankClient online_client{};
-  int client_failed_attempts = 0;
-  int delay = 0;
-  std::mutex online_mtx;
-}
-
 namespace czh::online
 {
+  OnlineState state{
+    .client_failed_attempts = 0,
+    .delay = 0
+  };
+  TankServer svr;
+  TankClient cli;
+  std::mutex online_mtx;
+
 #ifdef _WIN32
   WSADATA wsa_data;
   [[maybe_unused]] int wsa_startup_err = WSAStartup(MAKEWORD(2, 2), &wsa_data);
@@ -152,7 +151,7 @@ namespace czh::online
   {
     if (!a)
     {
-      msg::error(g::user_id, strerror(errno));
+      bc::error(g::state.id, strerror(errno));
     }
     return a;
   }
@@ -254,9 +253,9 @@ namespace czh::online
     {
       auto addr = get_peer_addr();
       if (!addr.has_value())
-        msg::warn(g::user_id, "Ignore invalid data");
+        bc::warn(g::state.id, "Ignore invalid data.");
       else
-        msg::warn(g::user_id, "Ignore invalid data from " + addr->to_string());
+        bc::warn(g::state.id, "Ignore invalid data from {}.", addr->to_string());
 
       return std::nullopt;
     }
@@ -427,7 +426,7 @@ namespace czh::online
   TCPClient::~TCPClient()
   {
     if (disconnect() < 0)
-      msg::error(g::user_id, strerror(errno));
+      bc::error(g::state.id, strerror(errno));
   }
 
   int TCPClient::disconnect() const
@@ -465,19 +464,19 @@ namespace czh::online
 
   std::string make_request(const std::string& cmd)
   {
-    return ser::serialize(cmd, ser::serialize(" "));
+    return utils::serialize(cmd, utils::serialize(" "));
   }
 
   template<typename... Args>
   std::string make_request(const std::string& cmd, Args&&... args)
   {
-    return ser::serialize(cmd, ser::serialize(std::forward<Args>(args)...));
+    return utils::serialize(cmd, utils::serialize(std::forward<Args>(args)...));
   }
 
   template<typename... Args>
   std::string make_response(Args&&... args)
   {
-    return ser::serialize(std::forward<Args>(args)...);
+    return utils::serialize(std::forward<Args>(args)...);
   }
 
   void TankServer::init()
@@ -490,88 +489,88 @@ namespace czh::online
     svr = new TCPServer{};
     svr->init([](const Req& req, Res& res)
     {
-      auto [cmd, args] = ser::deserialize<std::string, std::string>(req.get_content());
+      auto [cmd, args] = utils::deserialize<std::string, std::string>(req.get_content());
       if (cmd == "tank_react")
       {
-        auto [id, event] = ser::deserialize<size_t, tank::NormalTankEvent>(args);
-        game::tank_react(id, event);
+        auto [id, event] = utils::deserialize<size_t, tank::NormalTankEvent>(args);
+        g::tank_react(id, event);
       }
       else if (cmd == "update")
       {
-        auto [id, zone] = ser::deserialize<size_t, map::Zone>(args);
+        auto [id, zone] = utils::deserialize<size_t, map::Zone>(args);
         auto beg = std::chrono::steady_clock::now();
         std::lock_guard ml(g::mainloop_mtx);
-        //std::lock_guard dl(g::drawing_mtx);
+        //std::lock_guard dl(drawing::drawing_mtx);
+        auto& user = g::state.users[id];
         std::set<map::Pos> changes;
-        for (auto& r : g::userdata[id].map_changes)
+        for (auto& r : user.map_changes)
         {
           if (zone.contains(r))
-          {
             changes.insert(r);
-          }
         }
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>
             (std::chrono::steady_clock::now() - beg);
 
         std::vector<msg::Message> msgs;
-        for (auto it = g::userdata[id].messages.rbegin(); it < g::userdata[id].messages.rend(); ++it)
+        for (auto it = user.messages.rbegin(); it < user.messages.rend(); ++it)
         {
           if (!it->read)
           {
             msgs.emplace_back(*it);
             it->read = true;
           }
-          else // New messages are at the begin of the std::vector, so just break.
+          else // New messages are at the end of the std::vector, so just break.
             break;
         }
 
-        res.set_content(make_response(d.count(), drawing::extract_userinfo(),
-                                      changes, drawing::extract_tanks(),
-                                      msgs, drawing::extract_map(zone)));
-        g::userdata[id].map_changes.clear();
-        g::userdata[id].last_update = std::chrono::steady_clock::now();
+        res.set_content(make_response(d.count(), draw::extract_userinfo(),
+                                      changes, draw::extract_tanks(),
+                                      msgs, draw::extract_map(zone)));
+        user.map_changes.clear();
+        user.last_update = std::chrono::steady_clock::now();
+        user.visible_zone = zone.bigger_zone(-10);
       }
       else if (cmd == "register")
       {
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        auto id = game::add_tank();
-        g::userdata[id] = g::UserData{
+        std::lock_guard dl(draw::drawing_mtx);
+        auto id = g::add_tank(draw::state.visible_zone, g::state.id);
+        g::state.users[id] = g::UserData{
           .user_id = id,
           .ip = req.get_addr().ip()
         };
-        g::userdata[id].last_update = std::chrono::steady_clock::now();
-        g::userdata[id].active = true;
-        msg::info(-1, req.get_addr().ip() + " registered as " + std::to_string(id));
+        g::state.users[id].last_update = std::chrono::steady_clock::now();
+        g::state.users[id].active = true;
+        bc::info(bc::to_everyone, "{} registered as {}.", req.get_addr().ip(), id);
         res.set_content(make_response(id));
-        if (g::curr_page == g::Page::STATUS)
-          g::output_inited = false;
+        if (g::state.page == g::Page::STATUS)
+          draw::state.inited = false;
       }
       else if (cmd == "deregister")
       {
-        auto id = ser::deserialize<size_t>(args);
+        auto id = utils::deserialize<size_t>(args);
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") deregistered.");
-        g::tanks[id]->kill();
-        g::tanks[id]->clear();
-        delete g::tanks[id];
-        g::tanks.erase(id);
-        g::userdata.erase(id);
+        std::lock_guard dl(draw::drawing_mtx);
+        bc::info(bc::to_everyone, "{} ({}) deregistered.", req.get_addr().ip(), id);
+        g::state.tanks[id]->kill();
+        g::state.tanks[id]->clear();
+        delete g::state.tanks[id];
+        g::state.tanks.erase(id);
+        g::state.users.erase(id);
       }
       else if (cmd == "login")
       {
-        auto id = ser::deserialize<size_t>(args);
-        if (id == g::user_id)
+        auto id = utils::deserialize<size_t>(args);
+        if (id == g::state.id)
         {
           res.set_content(make_response(-1, std::string{"Cannot login as the server user."}));
           return;
         }
 
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        auto tank = game::id_at(id);
-        if (tank == nullptr || tank->is_auto())
+        std::lock_guard dl(draw::drawing_mtx);
+        auto tank = g::id_at(id);
+        if (tank == nullptr || tank->is_auto)
         {
           res.set_content(make_response(-1, std::string{"No such user."}));
           return;
@@ -581,32 +580,32 @@ namespace czh::online
           res.set_content(make_response(-1, std::string{"Already logined."}));
           return;
         }
-        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logined.");
-        game::revive(id);
-        g::userdata[id].last_update = std::chrono::steady_clock::now();
-        g::userdata[id].active = true;
+        bc::info(bc::to_everyone, "{} ({}) logined.", req.get_addr().ip(), id);
+        g::revive(id, g::state.users[id].visible_zone, id);
+        g::state.users[id].last_update = std::chrono::steady_clock::now();
+        g::state.users[id].active = true;
         res.set_content(make_response(0, std::string{"Success."}));
       }
       else if (cmd == "logout")
       {
-        auto id = ser::deserialize<size_t>(args);
+        auto id = utils::deserialize<size_t>(args);
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") logout.");
-        g::tanks[id]->kill();
-        g::tanks[id]->clear();
-        g::userdata[id].active = false;
+        std::lock_guard dl(draw::drawing_mtx);
+        bc::info(bc::to_everyone, "{} ({}) logout.", req.get_addr().ip(), id);
+        g::state.tanks[id]->kill();
+        g::state.tanks[id]->clear();
+        g::state.users[id].active = false;
       }
       else if (cmd == "add_auto_tank")
       {
-        auto [id, zone, lvl] = ser::deserialize<size_t, map::Zone, size_t>(args);
+        auto [id, zone, lvl] = utils::deserialize<size_t, map::Zone, size_t>(args);
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        game::add_auto_tank(lvl, zone, id);
+        std::lock_guard dl(draw::drawing_mtx);
+        g::add_auto_tank(lvl, zone, id);
       }
       else if (cmd == "run_command")
       {
-        auto [id, command] = ser::deserialize<size_t, std::string>(args);
+        auto [id, command] = utils::deserialize<size_t, std::string>(args);
         cmd::run_command(id, command);
       }
     });
@@ -641,7 +640,7 @@ namespace czh::online
 
   std::optional<size_t> TankClient::connect(const std::string& addr_, int port_)
   {
-    std::lock_guard l(g::online_mtx);
+    std::lock_guard l(online_mtx);
     host = addr_;
     port = port_;
     if (cli->connect(addr_, port_) != 0)
@@ -657,13 +656,13 @@ namespace czh::online
       cli->reset();
       return std::nullopt;
     }
-    auto id = ser::deserialize<size_t>(*ret);
+    auto id = utils::deserialize<size_t>(*ret);
     return id;
   }
 
   int TankClient::reconnect(const std::string& addr_, int port_, size_t id)
   {
-    std::lock_guard l(g::online_mtx);
+    std::lock_guard l(online_mtx);
     host = addr_;
     port = port_;
     if (cli->connect(addr_, port_) != 0)
@@ -679,10 +678,10 @@ namespace czh::online
       cli->reset();
       return -1;
     }
-    auto [i, msg] = ser::deserialize<int, std::string>(*res);
+    auto [i, msg] = utils::deserialize<int, std::string>(*res);
     if (i != 0)
     {
-      msg::error(g::user_id, msg);
+      bc::error(g::state.id, msg);
       return -1;
     }
     return 0;
@@ -690,12 +689,12 @@ namespace czh::online
 
   void TankClient::disconnect()
   {
-    std::lock_guard l(g::online_mtx);
-    std::string content = make_request("logout", g::user_id);
+    std::lock_guard l(online_mtx);
+    std::string content = make_request("logout", g::state.id);
     if (cli->send(content) < 0)
-      msg::error(g::user_id, strerror(errno));
+      bc::error(g::state.id, strerror(errno));
     if (cli->disconnect() < 0)
-      msg::error(g::user_id, strerror(errno));
+      bc::error(g::state.id, strerror(errno));
     cli->reset();
     delete cli;
     cli = nullptr;
@@ -703,57 +702,58 @@ namespace czh::online
 
   int TankClient::tank_react(tank::NormalTankEvent e) const
   {
-    std::lock_guard l(g::online_mtx);
-    std::string content = make_request("tank_react", g::user_id, e);
+    std::lock_guard l(online_mtx);
+    std::string content = make_request("tank_react", g::state.id, e);
     return cli->send(content);
   }
 
   int TankClient::update() const
   {
-    std::lock_guard l(g::online_mtx);
+    std::lock_guard l(online_mtx);
     auto beg = std::chrono::steady_clock::now();
-    std::string content = make_request("update", g::user_id, g::visible_zone.bigger_zone(10));
+    std::string content = make_request("update", g::state.id, draw::state.visible_zone.bigger_zone(10));
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
-      g::delay = -1;
-      g::output_inited = false;
+      state.delay = -1;
+      draw::state.inited = false;
       return -1;
     }
     int delay;
-    auto old_seed = g::snapshot.map.seed;
+    auto old_seed = draw::state.snapshot.map.seed;
     std::vector<msg::Message> msgs;
-    std::tie(delay, g::snapshot.userinfo, g::snapshot.changes, g::snapshot.tanks, msgs, g::snapshot.map)
-        = ser::deserialize<
+    std::tie(delay, draw::state.snapshot.userinfo, draw::state.snapshot.changes, draw::state.snapshot.tanks,
+             msgs, draw::state.snapshot.map)
+        = utils::deserialize<
           decltype(delay),
-          decltype(g::snapshot.userinfo),
-          decltype(g::snapshot.changes),
-          decltype(g::snapshot.tanks),
+          decltype(draw::state.snapshot.userinfo),
+          decltype(draw::state.snapshot.changes),
+          decltype(draw::state.snapshot.tanks),
           decltype(msgs),
-          decltype(g::snapshot.map)>(*ret);
+          decltype(draw::state.snapshot.map)>(*ret);
     int curr_delay = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>
                        (std::chrono::steady_clock::now() - beg).count()) - delay;
-    g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
+    state.delay = static_cast<int>((state.delay + 0.1 * curr_delay) / 1.1);
 
     for (auto& r : msgs) // reverse
-      g::userdata[g::user_id].messages.emplace_back(r);
+      g::state.users[g::state.id].messages.emplace_back(r);
 
-    if (old_seed != g::snapshot.map.seed)
-      g::output_inited = false;
+    if (old_seed != draw::state.snapshot.map.seed)
+      draw::state.inited = false;
     return 0;
   }
 
   int TankClient::add_auto_tank(size_t lvl) const
   {
-    std::lock_guard l(g::online_mtx);
-    std::string content = make_request("add_auto_tank", g::user_id, g::visible_zone, lvl);
+    std::lock_guard l(online_mtx);
+    std::string content = make_request("add_auto_tank", g::state.id, draw::state.visible_zone, lvl);
     return cli->send(content);
   }
 
   int TankClient::run_command(const std::string& str) const
   {
-    std::lock_guard l(g::online_mtx);
-    std::string content = make_request("run_command", g::user_id, str);
+    std::lock_guard l(online_mtx);
+    std::string content = make_request("run_command", g::state.id, str);
     return cli->send(content);
   }
 
@@ -767,7 +767,7 @@ namespace czh::online
     if (cli != nullptr)
     {
       if (cli->disconnect() < 0)
-        msg::error(g::user_id, strerror(errno));
+        bc::error(g::state.id, strerror(errno));
       delete cli;
     }
     cli = new TCPClient{};

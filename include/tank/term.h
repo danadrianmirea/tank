@@ -58,6 +58,8 @@ namespace czh::term
     int getch();
   };
 
+  extern KeyBoard keyboard;
+
   class TermPos
   {
   private:

@@ -15,6 +15,12 @@
 #define TANK_INPUT_H
 #pragma once
 
+#include <string>
+#include <utility>
+#include <chrono>
+#include <string>
+#include <functional>
+
 namespace czh::input
 {
   enum class Input
@@ -77,6 +83,31 @@ namespace czh::input
   {
     On, Off
   };
+
+  struct Hint
+  {
+    std::string hint;
+    bool applicable;
+  };
+
+  using Hints = std::vector<Hint>;
+  using HintProvider = std::function<Hints(const std::string&)>;
+
+  struct InputState
+  {
+    bool typing_command;
+    std::string line;
+    size_t pos;
+    std::pair<size_t, size_t> visible_line;
+    std::vector<std::string> history;
+    size_t history_pos;
+    Hints hint;
+    size_t hint_pos;
+    std::chrono::high_resolution_clock::time_point last_press;
+    Input last_input_value;
+    LongPressMode long_press_mode;
+  };
+  extern InputState state;
 
   void edit_refresh_line(bool with_hint = true);
 

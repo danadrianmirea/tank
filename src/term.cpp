@@ -21,13 +21,10 @@
 
 #include <iostream>
 
-namespace czh::g
-{
-  term::KeyBoard keyboard;
-}
-
 namespace czh::term
 {
+  KeyBoard keyboard;
+
   KeyBoard::KeyBoard()
     : keyboard_mode(0), initial_settings(), new_settings(), peek_character(0)
   {

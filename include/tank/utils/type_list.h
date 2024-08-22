@@ -19,7 +19,7 @@
 
 #include <variant>
 
-namespace czh::type_list
+namespace czh::utils
 {
   template<typename... List>
   struct TypeList

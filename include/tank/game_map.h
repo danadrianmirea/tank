@@ -21,7 +21,7 @@
 #include <random>
 #include <map>
 
-namespace czh::archive
+namespace czh::ar
 {
   class Archiver;
 }
@@ -81,7 +81,7 @@ namespace czh::map
   
   class Point
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
     friend class Map;
   private:
     bool generated;
@@ -116,19 +116,18 @@ namespace czh::map
     
     [[nodiscard]]std::size_t count(const Status &status) const;
   };
-  
-  extern Point empty_point;
-  extern Point wall_point;
-  
+
   const Point &generate(const Pos &i, size_t seed);
-  
+
   const Point &generate(int x, int y, size_t seed);
   
   class Map
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
   private:
     std::map<Pos, Point> map;
+  public:
+    unsigned long long seed;
   public:
     Map();
     
@@ -169,5 +168,9 @@ namespace czh::map
     
     int bullet_move(bullet::Bullet *, const Pos &pos, int direction);
   };
+
+  extern Map map;
+  extern const Point empty_point;
+  extern const Point wall_point;
 }
 #endif

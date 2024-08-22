@@ -15,10 +15,9 @@
 #define TANK_BULLET_H
 #pragma once
 
-#include "info.h"
 #include "game_map.h"
 
-namespace czh::archive
+namespace czh::ar
 {
   class Archiver;
 }
@@ -27,17 +26,23 @@ namespace czh::bullet
 {
   class Bullet
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
+
   private:
-    map::Pos pos;
-    map::Direction direction;
+    size_t id;
     size_t from_tank_id;
-    info::BulletInfo info;
+    map::Direction direction;
+    int hp;
+    int lethality;
+    int range;
+  public:
+    map::Pos pos;
 
   public:
-    Bullet(info::BulletInfo info_, std::size_t from_tank_id_,
-           map::Pos pos_, map::Direction direction_)
-      : pos(pos_), direction(direction_), from_tank_id(from_tank_id_), info(info_)
+    Bullet(size_t id_, size_t from_tank_id_, map::Pos pos_, map::Direction direction_,
+           int hp_, int lethality_, int range_)
+      : id(id_), from_tank_id(from_tank_id_), direction(direction_),
+        hp(hp_), lethality(lethality_), range(range_), pos(pos_)
     {
     }
 
@@ -47,13 +52,9 @@ namespace czh::bullet
 
     [[nodiscard]] bool is_alive() const;
 
-    [[nodiscard]] std::size_t get_tank() const;
+    [[nodiscard]] size_t get_tank() const;
 
     void kill();
-
-    [[nodiscard]] const map::Pos& get_pos() const;
-
-    map::Pos& get_pos();
 
     [[nodiscard]] int get_lethality() const;
 

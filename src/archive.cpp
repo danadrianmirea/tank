@@ -15,17 +15,16 @@
 #include "tank/tank.h"
 #include "tank/bullet.h"
 #include "tank/game_map.h"
+#include "tank/input.h"
 #include "tank/archive.h"
+#include "tank/utils/utils.h"
 
-#include <tank/utils.h>
-
-#include "tank/globals.h"
-
-namespace czh::archive
+namespace czh::ar
 {
   bullet::Bullet* Archiver::load_bullet(const BulletArchive& data)
   {
-    auto ret = new bullet::Bullet(data.info, data.from_tank_id, data.pos, data.direction);
+    auto ret = new bullet::Bullet(data.id, data.from_tank_id, data.pos,
+                                  data.direction, data.hp, data.lethality, data.range);
     return ret;
   }
 
@@ -33,10 +32,13 @@ namespace czh::archive
   {
     return BulletArchive
     {
+      .id = b->id,
+      .from_tank_id = b->from_tank_id,
       .pos = b->pos,
       .direction = b->direction,
-      .from_tank_id = b->from_tank_id,
-      .info = b->info
+      .hp = b->hp,
+      .lethality = b->lethality,
+      .range = b->range
     };
   }
 
@@ -44,7 +46,8 @@ namespace czh::archive
   {
     if (data.is_auto)
     {
-      auto ret = new tank::AutoTank(data.info, data.pos);
+      auto ret = new tank::AutoTank(data.id, data.name, data.max_hp, data.pos, data.gap,
+                                    data.bullet_hp, data.bullet_lethality, data.bullet_range);
       ret->hp = data.hp;
       ret->direction = data.direction;
       ret->hascleared = data.hascleared;
@@ -57,7 +60,8 @@ namespace czh::archive
     }
     else
     {
-      auto ret = new tank::NormalTank(data.info, data.pos);
+      auto ret = new tank::NormalTank(data.id, data.name, data.max_hp, data.pos,
+                                      data.bullet_hp, data.bullet_lethality, data.bullet_range);
       ret->hp = data.hp;
       ret->direction = data.direction;
       ret->hascleared = data.hascleared;
@@ -70,17 +74,24 @@ namespace czh::archive
   {
     TankArchive ret
     {
-      .info = t->info,
+      .id = t->id,
+      .hascleared = t->hascleared,
+      .name = t->name,
+      .max_hp = t->max_hp,
       .hp = t->hp,
+      .is_auto = t->is_auto,
       .pos = t->pos,
       .direction = t->direction,
-      .hascleared = t->hascleared
+      .bullet_hp = t->bullet_hp,
+      .bullet_lethality = t->bullet_lethality,
+      .bullet_range = t->bullet_range
     };
 
-    if (t->is_auto())
+    if (t->is_auto)
     {
       ret.is_auto = true;
       auto tank = dynamic_cast<const tank::AutoTank*>(t);
+      ret.gap = tank->gap;
       ret.target_id = tank->target_id;
       ret.route = tank->route;
       ret.route_pos = tank->route_pos;
@@ -112,7 +123,6 @@ namespace czh::archive
       {
         for (auto& x : bullets)
         {
-          utils::tank_assert(x != nullptr);
           if (x->get_id() == b)
           {
             p.bullets.emplace_back(x);
@@ -122,6 +132,7 @@ namespace czh::archive
       }
       ret.map[r.first] = p;
     }
+    ret.seed = archive.seed;
     return ret;
   }
 
@@ -150,60 +161,72 @@ namespace czh::archive
 
       ret.map[r.first] = pa;
     }
+    ret.seed = map.seed;
     return ret;
   }
 
   Archive archive()
   {
     Archive ret{
-      .userdata = g::userdata,
-      .user_id = g::user_id,
-      .next_id = g::next_id,
-      .tick = g::tick,
-      .msg_ttl = g::msg_ttl,
-      .game_map = Archiver::archive_map(g::game_map),
-      .seed = g::seed,
-      .history = g::history,
-      .long_pressing_threshold = g::long_pressing_threshold,
-      .unsafe_mode = g::unsafe_mode,
-      .tank_focus = g::tank_focus,
-      .style = g::style
+      // game state
+      .users = g::state.users,
+      .user_id = g::state.id,
+      .next_id = g::state.next_id,
+
+      // draw state
+      .focus = draw::state.focus,
+      .style = draw::state.style,
+
+      // map
+      .game_map = Archiver::archive_map(map::map),
+
+      // input state
+      .history = input::state.history,
+
+      // config
+      .config = cfg::config
     };
 
-    for (const auto& r : g::tanks)
-      ret.tanks.emplace_back(Archiver::archive_tank(r.second));
+    for (const auto& r : g::state.tanks | std::views::values)
+      ret.tanks.emplace_back(Archiver::archive_tank(r));
 
-    for (const auto& r : g::bullets)
+    for (const auto& r : g::state.bullets)
       ret.bullets.emplace_back(Archiver::archive_bullet(r));
     return ret;
   }
 
   void load(const Archive& archive)
   {
-    g::userdata = archive.userdata;
-    g::user_id = archive.user_id;
-    g::next_id = archive.next_id;
-    g::tick = archive.tick;
-    g::msg_ttl = archive.msg_ttl;
-    g::seed = archive.seed;
-    g::history = archive.history;
-    g::long_pressing_threshold = archive.long_pressing_threshold;
-    g::unsafe_mode = archive.unsafe_mode;
-    g::tank_focus = archive.tank_focus;
-    g::style = archive.style;
+    // game state
+    g::state.users = archive.users;
+    g::state.id = archive.user_id;
+    g::state.next_id = archive.next_id;
 
-    g::tanks.clear();
+    // draw state
+    draw::state.focus = archive.focus;
+    draw::state.style = archive.style;
+
+    // map
+    Archiver::archive_map(map::map) = archive.game_map;
+
+    // input state
+    input::state.history = archive.history;
+
+    // config
+    cfg::config = archive.config;
+
+    g::state.tanks.clear();
     for (const auto& r : archive.tanks)
     {
-      g::tanks[r.info.id] = Archiver::load_tank(r);
+      g::state.tanks[r.id] = Archiver::load_tank(r);
     }
 
-    g::bullets.clear();
+    g::state.bullets.clear();
     for (const auto& r : archive.bullets)
     {
-      g::bullets.emplace_back(Archiver::load_bullet(r));
+      g::state.bullets.emplace_back(Archiver::load_bullet(r));
     }
 
-    g::game_map = Archiver::load_map(archive.game_map, g::tanks, g::bullets);
+    map::map = Archiver::load_map(archive.game_map, g::state.tanks, g::state.bullets);
   }
 }

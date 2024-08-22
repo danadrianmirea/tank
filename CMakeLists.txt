@@ -14,9 +14,9 @@ add_executable(tank
         src/drawing.cpp
         src/input.cpp
         src/online.cpp
-        src/utils.cpp
-        src/message.cpp
+        src/broadcast.cpp
         src/archive.cpp
+        src/config.cpp
 )
 if (WIN32)
     target_link_libraries(tank wsock32 ws2_32 Threads::Threads)

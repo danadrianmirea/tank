@@ -13,24 +13,20 @@
 //   limitations under the License.
 #include "tank/game.h"
 #include "tank/game_map.h"
-#include "tank/globals.h"
-#include "tank/utils.h"
+#include "tank/utils/utils.h"
 #include <vector>
 #include <ranges>
 
-namespace czh::g
-{
-  map::Map game_map;
-  unsigned long long seed = utils::randnum<unsigned long long>(1, 20);
-  const map::Point empty_point("used for empty point", {});
-  const map::Point wall_point("used for wall point", {map::Status::WALL});
-}
-
 namespace czh::map
 {
+  Map map;
+  const Point empty_point("used for empty point", {});
+  const Point wall_point("used for wall point", {map::Status::WALL});
+
+
   void add_changes(const Pos& p)
   {
-    for (auto& r : g::userdata | std::views::values)
+    for (auto& r : g::state.users | std::views::values)
       r.map_changes.insert(p);
   }
 
@@ -155,7 +151,8 @@ namespace czh::map
     return std::abs(from.x - to.x) + std::abs(from.y - to.y);
   }
 
-  Map::Map() = default;
+  Map::Map()
+    : seed(utils::randnum<unsigned long long>(1, 20)) {}
 
   int Map::tank_up(const Pos& pos)
   {
@@ -241,19 +238,19 @@ namespace czh::map
 
     // divide the map for quicker route finding
     if (i.x == 0 || i.y == 0 || i.x % MAP_DIVISION == 0 || i.y % MAP_DIVISION == 0)
-      return g::empty_point;
+      return empty_point;
 
     int a = i.x * (i.y / magic);
     if (a < 0) a = -a * 2;
     if (seed * a % 37 == 1)
-      return g::wall_point;
+      return wall_point;
 
     a = (i.x / magic) * i.y;
     if (a < 0) a = -a * 2;
     if (seed * a % 37 == 1)
-      return g::wall_point;
+      return wall_point;
 
-    return g::empty_point;
+    return empty_point;
   }
 
   const Point& generate(int x, int y, size_t seed)
@@ -272,7 +269,7 @@ namespace czh::map
     {
       return map.at(i);
     }
-    return generate(i, g::seed);
+    return generate(i, seed);
   }
 
   int Map::fill(const Zone& zone, const Status& status)

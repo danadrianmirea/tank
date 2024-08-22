@@ -11,22 +11,23 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/globals.h"
 #include "tank/game.h"
 #include "tank/term.h"
-#include "tank/utils.h"
 #include "tank/archive.h"
-#include "tank/serialization.h"
 #include "tank/command.h"
+#include "tank/broadcast.h"
+#include "tank/utils/utils.h"
+#include "tank/utils/serialization.h"
 #include <string>
 #include <vector>
 #include <fstream>
 #include <mutex>
 #include <set>
 #include <iterator>
-#include <filesystem>
+#include <ranges>
+#include <tank/online.h>
 
-namespace czh::g
+namespace czh::cmd
 {
   const std::set<std::string> remote_cmds
   {
@@ -36,81 +37,79 @@ namespace czh::g
     "save", "load"
   };
 
-  bool unsafe_mode{false};
-
-  cmd::HintProvider fixed_provider(const cmd::Hints& hints, const std::string& cond = "")
+  input::HintProvider fixed_provider(const input::Hints& hints, const std::string& cond = "")
   {
     return [hints, cond](const std::string& s)
     {
       if (cond.empty() || cond == s)
         return hints;
-      return cmd::Hints{};
+      return input::Hints{};
     };
   }
 
-  cmd::HintProvider id_provider(const std::function<bool(decltype(g::tanks)::value_type)>& pred,
-                                const std::string& cond = "")
+  input::HintProvider id_provider(const std::function<bool(decltype(g::state.tanks)::value_type)>& pred,
+                                  const std::string& cond = "")
   {
     return [pred, cond](const std::string& s)
     {
       if (cond.empty() || cond == s)
       {
-        cmd::Hints ret;
-        for (auto& r : g::tanks)
+        input::Hints ret;
+        for (auto& r : g::state.tanks)
         {
           if (pred(r))
             ret.emplace_back(std::to_string(r.first), true);
         }
         return ret;
       }
-      return cmd::Hints{};
+      return input::Hints{};
     };
   }
 
-  cmd::HintProvider valid_id_provider(const std::string& cond = "")
+  input::HintProvider valid_id_provider(const std::string& cond = "")
   {
     return id_provider([](auto&& r) { return true; }, cond);
   }
 
-  cmd::HintProvider alive_id_provider(const std::string& cond = "")
+  input::HintProvider alive_id_provider(const std::string& cond = "")
   {
     return id_provider([](auto&& r) { return r.second->is_alive(); }, cond);
   }
 
-  cmd::HintProvider valid_auto_id_provider(const std::string& cond = "")
+  input::HintProvider valid_auto_id_provider(const std::string& cond = "")
   {
-    return id_provider([](auto&& r) { return r.second->is_auto(); }, cond);
+    return id_provider([](auto&& r) { return r.second->is_auto; }, cond);
   }
 
-  cmd::HintProvider user_id_provider(const std::string& cond = "")
+  input::HintProvider user_id_provider(const std::string& cond = "")
   {
     return [cond](const std::string& s)
     {
-      cmd::Hints ret{};
+      input::Hints ret{};
       if (cond.empty() || cond == s)
       {
-        for (const auto& r : g::snapshot.userinfo)
-          ret.emplace_back(std::to_string(r.first), true);
+        for (const auto& r : draw::state.snapshot.userinfo | std::views::keys)
+          ret.emplace_back(std::to_string(r), true);
         return ret;
       }
-      return cmd::Hints{};
+      return input::Hints{};
     };
   }
 
-  cmd::HintProvider range_provider(int a, int b, const std::string& cond = "") //[a, b)
+  input::HintProvider range_provider(int a, int b, const std::string& cond = "") //[a, b)
   {
-    cmd::Hints ret;
+    input::Hints ret;
     for (size_t i = a; i < b; ++i)
       ret.emplace_back(std::to_string(i), true);
     return [ret, cond](const std::string& s)
     {
       if (cond.empty() || cond == s)
         return ret;
-      return cmd::Hints{};
+      return input::Hints{};
     };
   }
 
-  cmd::HintProvider concat(const cmd::HintProvider& a, const cmd::HintProvider& b)
+  input::HintProvider concat(const input::HintProvider& a, const input::HintProvider& b)
   {
     return [a, b](const std::string& s)
     {
@@ -122,13 +121,74 @@ namespace czh::g
     };
   }
 
+  inline bool is_ip(const std::string& s)
+  {
+    std::regex ipv4(R"(^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)($|(?!\.$)\.)){4}$)");
+    std::regex ipv6("^(?:(?:[\\da-fA-F]{1,4})($|(?!:$):)){8}$");
+    return std::regex_search(s, ipv4) || std::regex_search(s, ipv6);
+  }
+
+  inline bool is_port(const int p)
+  {
+    return p > 0 && p < 65536;
+  }
+
+  inline bool is_valid_id(const int id)
+  {
+    return g::id_at(id) != nullptr;
+  }
+
+  inline bool is_alive_id(const int id)
+  {
+    if (!is_valid_id(id)) return false;
+    return g::id_at(id)->is_alive();
+  }
+
+  inline bool is_integer(const std::string& r)
+  {
+    if (r[0] != '+' && r[0] != '-' && !std::isdigit(r[0]))
+      return false;
+
+    for (size_t i = 1; i < r.size(); ++i)
+    {
+      if (!std::isdigit(r[i]))
+        return false;
+    }
+    return true;
+  }
+
+  inline bool is_valid_id(const std::string& s)
+  {
+    if (s.empty()) return false;
+    if (is_integer(s) && s[0] != '-')
+    {
+      size_t a;
+      try
+      {
+        a = std::stoull(s);
+      }
+      catch (...)
+      {
+        return false;
+      }
+      return g::id_at(a) != nullptr;
+    }
+    return false;
+  }
+
+  inline bool is_alive_id(const std::string& s)
+  {
+    if (!is_valid_id(s)) return false;
+    return g::id_at(std::stoull(s))->is_alive();
+  }
+
   const std::vector<cmd::CommandInfo> commands{
     {
       "help", "[line]", {
         [](const std::string& s)
         {
-          cmd::Hints ret;
-          for (size_t i = 1; i < help_text.size() + 1; ++i)
+          input::Hints ret;
+          for (size_t i = 1; i < draw::state.help_text.size() + 1; ++i)
             ret.emplace_back(std::to_string(i), true);
           return ret;
         }
@@ -164,9 +224,9 @@ namespace czh::g
         concat(alive_id_provider(), fixed_provider({{"[to x-coordinate, int]", false}})),
         [](const std::string& s)
         {
-          if (utils::is_valid_id(s))
-            return cmd::Hints{};
-          return cmd::Hints{{"[to y-coordinate, int]", false}};
+          if (is_valid_id(s))
+            return input::Hints{};
+          return input::Hints{{"[to y-coordinate, int]", false}};
         }
       }
     },
@@ -196,59 +256,59 @@ namespace czh::g
         [](const std::string& last_arg)
         {
           if (last_arg == "tick")
-            return cmd::Hints{{"[Tick, int, milliseconds]", false}};
+            return input::Hints{{"[Tick, int, milliseconds]", false}};
           else if (last_arg == "seed")
-            return cmd::Hints{{"[Seed, int]", false}};
+            return input::Hints{{"[Seed, int]", false}};
           else if (last_arg == "msgTTL")
-            return cmd::Hints{{"[TTL, int, milliseconds]", false}};
+            return input::Hints{{"[TTL, int, milliseconds]", false}};
           else if (last_arg == "longPressTH")
-            return cmd::Hints{{"[Threshold, int, microseconds]", false}};
+            return input::Hints{{"[Threshold, int, microseconds]", false}};
           else if (last_arg == "unsafe")
-            return cmd::Hints{{"[bool]", false}, {"true", true}, {"false", true}};
+            return input::Hints{{"[bool]", false}, {"true", true}, {"false", true}};
           else // Tank's
           {
-            if (utils::is_valid_id(last_arg))
+            if (is_valid_id(last_arg))
             {
-              if (game::id_at(std::stoull(last_arg))->is_auto())
+              if (g::id_at(std::stoull(last_arg))->is_auto)
               {
-                return cmd::Hints{
+                return input::Hints{
                   {"bullet", true}, {"name", true},
                   {"max_hp", true}, {"hp", true}, {"target", true}
                 };
               }
-              return cmd::Hints{
+              return input::Hints{
                 {"bullet", true}, {"name", true},
                 {"max_hp", true}, {"hp", true}
               };
             }
           }
-          return cmd::Hints{};
+          return input::Hints{};
         },
         // Arg 2: Tank setting's value or bullet setting field
         [](const std::string& last_arg)
         {
           if (last_arg == "bullet")
-            return cmd::Hints{{"hp", true}, {"lethality", true}, {"range", true}};
+            return input::Hints{{"hp", true}, {"lethality", true}, {"range", true}};
           else if (last_arg == "name")
-            return cmd::Hints{{"[Name, string]", false}};
+            return input::Hints{{"[Name, string]", false}};
           else if (last_arg == "max_hp")
-            return cmd::Hints{{"[Max HP, int]", false}};
+            return input::Hints{{"[Max HP, int]", false}};
           else if (last_arg == "hp")
-            return cmd::Hints{{"[HP, int]", false}};
+            return input::Hints{{"[HP, int]", false}};
           else if (last_arg == "target")
-            return cmd::Hints{{"[Target, ID]", false}};
-          return cmd::Hints{};
+            return input::Hints{{"[Target, ID]", false}};
+          return input::Hints{};
         },
         // Arg 3: Bullet setting's value
         [](const std::string& last_arg)
         {
           if (last_arg == "hp")
-            return cmd::Hints{{"[HP of bullet, int]", false}};
+            return input::Hints{{"[HP of bullet, int]", false}};
           else if (last_arg == "lethality")
-            return cmd::Hints{{"[Lethality of bullet, int]", false}};
+            return input::Hints{{"[Lethality of bullet, int]", false}};
           else if (last_arg == "range")
-            return cmd::Hints{{"[Range of bullet, int]", false}};
-          return cmd::Hints{};
+            return input::Hints{{"[Range of bullet, int]", false}};
+          return input::Hints{};
         },
       }
     },
@@ -270,10 +330,7 @@ namespace czh::g
     {"save", "[filename, string]", {}},
     {"load", "[filename, string]", {}}
   };
-}
 
-namespace czh::cmd
-{
   CmdCall parse(const std::string& cmd)
   {
     if (cmd.empty()) return {.good = false, .error = {"No command input."}};
@@ -415,17 +472,17 @@ namespace czh::cmd
     if (!call.good)
     {
       if (!call.error.empty())
-        msg::error(user_id, call.error[0]);
+        bc::error(user_id, call.error[0]);
       return;
     }
 
-    if (g::game_mode == g::GameMode::CLIENT)
+    if (g::state.mode == g::Mode::CLIENT)
     {
-      if (g::remote_cmds.find(call.name) != g::remote_cmds.end())
+      if (remote_cmds.find(call.name) != remote_cmds.end())
       {
-        int ret = g::online_client.run_command(str);
+        int ret = online::cli.run_command(str);
         if (ret != 0)
-          msg::error(user_id, "Failed to run command on server.");
+          bc::error(user_id, "Failed to run command on server.");
         return;
       }
     }
@@ -433,37 +490,37 @@ namespace czh::cmd
     if (call.is("help"))
     {
       if (call.args.empty())
-        g::help_pos = 0;
+        draw::state.help_pos = 0;
       else if (auto v = call.get_if(
         [&call](int i)
         {
-          return call.assert(i >= 1 && i < g::help_text.size(), "Page out of range");
+          return call.assert(i >= 1 && i < draw::state.help_text.size(), "Page out of range");
         }); v)
       {
         int i = std::get<0>(*v);
-        g::help_pos = i - 1;
+        draw::state.help_pos = i - 1;
       }
       else goto invalid_args;
-      g::curr_page = g::Page::HELP;
-      g::output_inited = false;
+      g::state.page = g::Page::HELP;
+      draw::state.inited = false;
     }
     else if (call.is("status"))
     {
       if (call.args.empty())
       {
-        g::curr_page = g::Page::STATUS;
-        g::output_inited = false;
+        g::state.page = g::Page::STATUS;
+        draw::state.inited = false;
       }
       else goto invalid_args;
     }
     else if (call.is("notification"))
     {
-      //std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      //std::lock_guard ml(game::mainloop_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       if (call.args.empty())
       {
-        g::curr_page = g::Page::NOTIFICATION;
-        g::output_inited = false;
+        g::state.page = g::Page::NOTIFICATION;
+        draw::state.inited = false;
       }
       else if (auto v = call.get_if([&call](const std::string& option)
       {
@@ -472,10 +529,10 @@ namespace czh::cmd
       {
         auto [opt] = *v;
         if (opt == "clear")
-          g::userdata[user_id].messages.clear();
+          g::state.users[user_id].messages.clear();
         else if (opt == "read")
         {
-          for (auto& r : g::userdata[user_id].messages)
+          for (auto& r : g::state.users[user_id].messages)
             r.read = true;
         }
       }
@@ -484,25 +541,25 @@ namespace czh::cmd
         return call.assert(option == "clear" && f == "read", "Invalid option.");
       }))
       {
-        auto& msgs = g::userdata[user_id].messages;
+        auto& msgs = g::state.users[user_id].messages;
         msgs.erase(std::remove_if(msgs.begin(), msgs.end(), [](auto&& m) { return m.read; }), msgs.end());
       }
       else goto invalid_args;
 
-      if (g::curr_page == g::Page::NOTIFICATION)
-        g::output_inited = false;
+      if (g::state.page == g::Page::NOTIFICATION)
+        draw::state.inited = false;
     }
     else if (call.is("quit"))
     {
       if (call.args.empty())
       {
         std::lock_guard ml(g::mainloop_mtx);
-        std::lock_guard dl(g::drawing_mtx);
-        term::move_cursor({0, g::screen_height + 1});
+        std::lock_guard dl(draw::drawing_mtx);
+        term::move_cursor({0, draw::state.height + 1});
         term::output("\033[?25h");
-        msg::info(user_id, "Quitting.");
+        bc::info(user_id, "Quitting.");
         term::flush();
-        game::quit();
+        g::quit();
         std::exit(0);
       }
       else goto invalid_args;
@@ -511,8 +568,8 @@ namespace czh::cmd
     {
       if (call.args.empty())
       {
-        g::game_running = false;
-        msg::info(user_id, "Stopped.");
+        g::state.running = false;
+        bc::info(user_id, "Stopped.");
       }
       else goto invalid_args;
     }
@@ -520,15 +577,15 @@ namespace czh::cmd
     {
       if (call.args.empty())
       {
-        g::game_running = true;
-        msg::info(user_id, "Continuing.");
+        g::state.running = true;
+        bc::info(user_id, "Continuing.");
       }
       else goto invalid_args;
     }
     else if (call.is("fill"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       int from_x;
       int from_y;
       int to_x;
@@ -561,58 +618,56 @@ namespace czh::cmd
       {
         for (int j = zone.y_min; j < zone.y_max; ++j)
         {
-          if (g::game_map.has(map::Status::TANK, {i, j}))
+          if (map::map.has(map::Status::TANK, {i, j}))
           {
-            if (auto t = g::game_map.at(i, j).get_tank(); t != nullptr)
+            if (auto t = map::map.at(i, j).get_tank(); t != nullptr)
             {
               t->kill();
             }
           }
-          else if (g::game_map.has(map::Status::BULLET, {i, j}))
+          else if (map::map.has(map::Status::BULLET, {i, j}))
           {
-            auto bullets = g::game_map.at(i, j).get_bullets();
+            auto bullets = map::map.at(i, j).get_bullets();
             for (auto& r : bullets)
             {
               r->kill();
             }
           }
-          game::clear_death();
+          g::clear_death();
         }
       }
       if (is_wall)
       {
-        g::game_map.fill(zone, map::Status::WALL);
+        map::map.fill(zone, map::Status::WALL);
       }
       else
       {
-        g::game_map.fill(zone);
+        map::map.fill(zone);
       }
-      msg::info(user_id, "Filled from (" + std::to_string(from_x) + ","
-                         + std::to_string(from_y) + ") to (" + std::to_string(to_x) + "," + std::to_string(to_y) +
-                         ").");
+      bc::info(user_id, "Filled from ({}, {}) to ({}, {}).", from_x, from_y, to_x, to_y);
     }
     else if (call.is("tp"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       int id = -1;
       map::Pos to_pos;
       auto check = [](const map::Pos& p)
       {
-        return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
+        return !map::map.has(map::Status::WALL, p) && !map::map.has(map::Status::TANK, p);
       };
 
       if (auto v = call.get_if(
         [&call](int id, int to_id)
         {
-          return call.assert(utils::is_alive_id(id) && utils::is_alive_id(to_id),
+          return call.assert(is_alive_id(id) && is_alive_id(to_id),
                              "Both tank shall be alive.");
         }); v)
       {
         int to_id;
         std::tie(id, to_id) = *v;
 
-        auto pos = game::id_at(to_id)->get_pos();
+        auto pos = g::id_at(to_id)->pos;
         std::vector<map::Pos> avail;
         for (int x = pos.x - 3; x < pos.x + 3; ++x)
         {
@@ -635,7 +690,7 @@ namespace czh::cmd
       else if (auto v = call.get_if(
         [&check, &call](int id, int x, int y)
         {
-          return call.assert(utils::is_alive_id(id), "Tank shall be alive.")
+          return call.assert(is_alive_id(id), "Tank shall be alive.")
                  && call.assert(check(map::Pos(x, y)), "Target pos is not available.");
         }); v)
       {
@@ -643,41 +698,39 @@ namespace czh::cmd
       }
       else goto invalid_args;
 
-      g::game_map.remove_status(map::Status::TANK, game::id_at(id)->get_pos());
-      g::game_map.add_tank(game::id_at(id), to_pos);
-      game::id_at(id)->get_pos() = to_pos;
-      msg::info(user_id, game::id_at(id)->get_name() + " was teleported to ("
-                         + std::to_string(to_pos.x) + "," + std::to_string(to_pos.y) + ").");
+      auto tank = g::id_at(id);
+      map::map.remove_status(map::Status::TANK, tank->pos);
+      map::map.add_tank(tank, to_pos);
+      tank->pos = to_pos;
+      bc::info(user_id, "{} was teleported to ({}, {}).", tank->name, to_pos.x, to_pos.y);
     }
     else if (call.is("revive"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       int id;
       if (call.args.empty())
       {
-        for (auto& r : g::tanks)
-        {
-          game::revive(r.second->get_id());
-        }
-        msg::info(user_id, "Revived all tanks.");
+        for (auto& r : g::state.tanks | std::views::values)
+          g::revive(r->get_id(), g::state.users[user_id].visible_zone, user_id);
+        bc::info(user_id, "Revived all tanks.");
         return;
       }
       else if (auto v = call.get_if([&call](int id)
       {
-        return call.assert(utils::is_valid_id(id), "Invalid ID.");
+        return call.assert(is_valid_id(id), "Invalid ID.");
       }); v)
       {
         std::tie(id) = *v;
       }
       else goto invalid_args;
-      game::revive(id);
-      msg::info(user_id, game::id_at(id)->get_name() + " revived.");
+      g::revive(id, g::state.users[user_id].visible_zone, user_id);
+      bc::info(user_id, g::id_at(id)->name + " revived.");
     }
     else if (call.is("summon"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       int num, lvl;
       if (auto v = call.get_if(
         [&call](int num, int lvl)
@@ -691,170 +744,170 @@ namespace czh::cmd
       else goto invalid_args;
       for (size_t i = 0; i < num; ++i)
       {
-        game::add_auto_tank(lvl);
+        g::add_auto_tank(lvl, g::state.users[user_id].visible_zone, user_id);
       }
-      msg::info(user_id, "Added " + std::to_string(num) + " AutoTanks, Level: " + std::to_string(lvl) + ".");
+      bc::info(user_id, "Added {} AutoTanks, Level: {}.", num, lvl);
     }
     else if (call.is("observe"))
     {
       int id;
       if (auto v = call.get_if([&call](int id)
       {
-        return call.assert(g::snapshot.tanks.find(id) != g::snapshot.tanks.end(), "Invalid ID.");
+        return call.assert(draw::state.snapshot.tanks.find(id) != draw::state.snapshot.tanks.end(), "Invalid ID.");
       }); v)
       {
         std::tie(id) = *v;
       }
       else goto invalid_args;
-      g::tank_focus = id;
-      msg::info(user_id, "Observing " + g::snapshot.tanks[id].info.name);
+      draw::state.focus = id;
+      bc::info(user_id, "Observing {}.", draw::state.snapshot.tanks[id].name);
     }
     else if (call.is("kill"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       if (call.args.empty())
       {
-        for (auto& r : g::tanks)
+        for (auto& r : g::state.tanks)
         {
           if (r.second->is_alive()) r.second->kill();
         }
-        game::clear_death();
-        msg::info(user_id, "Killed all tanks.");
+        g::clear_death();
+        bc::info(user_id, "Killed all tanks.");
       }
       else if (auto v = call.get_if([&call](int id)
       {
-        return call.assert(utils::is_valid_id(id), "Invalid ID.");
+        return call.assert(is_valid_id(id), "Invalid ID.");
       }); v)
       {
         auto [id] = *v;
-        auto t = game::id_at(id);
+        auto t = g::id_at(id);
         t->kill();
-        game::clear_death();
-        msg::info(user_id, t->get_name() + " was killed.");
+        g::clear_death();
+        bc::info(user_id, "{} was killed by command.", t->name);
       }
       else goto invalid_args;
     }
     else if (call.is("clear"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
-      if (g::curr_page == g::Page::STATUS)
-        g::output_inited = false;
+      std::lock_guard dl(draw::drawing_mtx);
+      if (g::state.page == g::Page::STATUS)
+        draw::state.inited = false;
       if (call.args.empty())
       {
-        for (auto& r : g::bullets)
+        for (auto& r : g::state.bullets)
         {
-          if (game::id_at(r->get_tank())->is_auto())
+          if (g::id_at(r->get_tank())->is_auto)
           {
             r->kill();
           }
         }
-        for (auto& r : g::tanks)
+        for (auto& r : g::state.tanks)
         {
-          if (r.second->is_auto())
+          if (r.second->is_auto)
           {
             r.second->kill();
           }
         }
-        game::clear_death(); // before delete
-        for (auto it = g::tanks.begin(); it != g::tanks.end();)
+        g::clear_death(); // before delete
+        for (auto it = g::state.tanks.begin(); it != g::state.tanks.end();)
         {
-          if (!it->second->is_auto())
+          if (!it->second->is_auto)
           {
             ++it;
           }
           else
           {
             delete it->second;
-            it = g::tanks.erase(it);
+            it = g::state.tanks.erase(it);
           }
         }
-        msg::info(user_id, "Cleared all tanks.");
+        bc::info(user_id, "Cleared all tanks.");
       }
       else if (auto v = call.get_if([&call](const std::string& f)
       {
         return call.assert(f == "death", "Invalid option.");
       }); v)
       {
-        for (auto& r : g::bullets)
+        for (auto& r : g::state.bullets)
         {
-          auto t = game::id_at(r->get_tank());
-          if (t->is_auto() && !t->is_alive())
+          auto t = g::id_at(r->get_tank());
+          if (t->is_auto && !t->is_alive())
           {
             r->kill();
           }
         }
-        for (auto& r : g::tanks)
+        for (auto& r : g::state.tanks)
         {
-          if (r.second->is_auto() && !r.second->is_alive())
+          if (r.second->is_auto && !r.second->is_alive())
           {
             r.second->kill();
           }
         }
-        game::clear_death(); // before delete
-        for (auto it = g::tanks.begin(); it != g::tanks.end();)
+        g::clear_death(); // before delete
+        for (auto it = g::state.tanks.begin(); it != g::state.tanks.end();)
         {
-          if (!it->second->is_auto() || it->second->is_alive())
+          if (!it->second->is_auto || it->second->is_alive())
           {
             ++it;
           }
           else
           {
             delete it->second;
-            it = g::tanks.erase(it);
+            it = g::state.tanks.erase(it);
           }
         }
-        msg::info(user_id, "Cleared all died tanks.");
+        bc::info(user_id, "Cleared all died tanks.");
       }
       else if (auto v = call.get_if(
         [&call](int id)
         {
-          return call.assert(utils::is_valid_id(id), "Invalid ID.") &&
-                 call.assert(game::id_at(id)->is_auto(), "User's Tank can not be cleared.");
+          return call.assert(is_valid_id(id), "Invalid ID.") &&
+                 call.assert(g::id_at(id)->is_auto, "User's Tank can not be cleared.");
         }); v)
       {
         auto [id] = *v;
-        for (auto& r : g::bullets)
+        for (auto& r : g::state.bullets)
         {
           if (r->get_tank() == id)
           {
             r->kill();
           }
         }
-        auto t = game::id_at(id);
+        auto t = g::id_at(id);
         t->kill();
-        game::clear_death(); // before delete
+        g::clear_death(); // before delete
         delete t;
-        g::tanks.erase(id);
-        msg::info(user_id, "ID: " + std::to_string(id) + " was cleared.");
+        g::state.tanks.erase(id);
+        bc::info(user_id, "ID: {} was cleared.", id);
       }
       else goto invalid_args;
     }
     else if (call.is("set"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       if (auto v = call.get_if(
         [&call](int id, const std::string& key, int value)
         {
-          if (!utils::is_valid_id(id))
+          if (!is_valid_id(id))
           {
             call.error.emplace_back("Invalid ID.");
             return false;
           }
-          auto t = game::id_at(id);
+          auto t = g::id_at(id);
           if (key == "max_hp")
             return call.assert(value > 0, "Invalid value. (Max HP > 0)");
           else if (key == "hp")
-            return call.assert(value > 0 && value <= t->get_max_hp(), "Invalid value. (0 < HP <= Max HP)");
+            return call.assert(value > 0 && value <= t->max_hp, "Invalid value. (0 < HP <= Max HP)");
           else if (key == "target")
           {
-            return call.assert(t->is_auto(), "Only AutoTank has target.")
+            return call.assert(t->is_auto, "Only AutoTank has target.")
                    && call.assert(t->is_alive(), "The tank shall be alive.")
-                   && call.assert(utils::is_valid_id(value), "Invalid target id.")
+                   && call.assert(is_valid_id(value), "Invalid target id.")
                    && call.assert(value != id, "Can not set one as a target of itself.")
-                   && call.assert(game::id_at(value)->is_alive(), "Target shall be alive.");
+                   && call.assert(g::id_at(value)->is_alive(), "Target shall be alive.");
           }
           else
           {
@@ -864,47 +917,46 @@ namespace czh::cmd
         }); v)
       {
         auto [id, key, value] = *v;
+        auto tank = g::id_at(id);
         if (key == "max_hp")
         {
-          game::id_at(id)->get_info().max_hp = value;
-          msg::info(user_id, "The max_hp of " + game::id_at(id)->get_name()
-                             + " was set to " + std::to_string(value) + ".");
+          tank->max_hp = value;
+          bc::info(user_id, "The Max HP of {} was set to {}.", tank->name, value);
           return;
         }
         else if (key == "hp")
         {
-          auto tank = game::id_at(id);
-          if (!tank->is_alive()) game::revive(id);
-          tank->get_hp() = value;
-          msg::info(user_id, "The hp of " + tank->get_name()
-                             + " was set to " + std::to_string(value) + ".");
+          if (!tank->is_alive()) g::revive(id, g::state.users[user_id].visible_zone, user_id);
+          tank->hp = value;
+          bc::info(user_id, "The HP of {} was set to {}.", tank->name, value);
           return;
         }
         else if (key == "target")
         {
-          auto tank = dynamic_cast<tank::AutoTank*>(game::id_at(id));
-          auto target = game::id_at(value);
-          int ret = tank->set_target(value);
+          auto atank = dynamic_cast<tank::AutoTank*>(tank);
+          auto target = g::id_at(value);
+          int ret = atank->set_target(value);
           if (ret == 0)
-            msg::info(user_id, "The target of " + tank->get_name() + " was set to " + target->get_name() + ".");
+            bc::info(user_id, "{}'s target was set to {}.", tank->name, target->name);
           else
-            msg::info(user_id, "Failed to find route from " + tank->get_name() + " to " + target->get_name() + ".");
+            bc::info(user_id, "Failed to find route from {} to {}.", atank->name, target->name);
           return;
         }
       }
       else if (auto v = call.get_if(
         [&call](int id, const std::string& key, const std::string& value)
         {
-          return call.assert(utils::is_valid_id(id), "Invalid ID.")
+          return call.assert(is_valid_id(id), "Invalid ID.")
                  && call.assert(key == "name", "Invalid option.");
         }); v)
       {
         auto [id, key, value] = *v;
+        auto tank = g::id_at(id);
         if (key == "name")
         {
-          std::string old_name = game::id_at(id)->get_name();
-          game::id_at(id)->get_name() = value;
-          msg::info(user_id, "The name of " + old_name + " was set to '" + game::id_at(id)->get_name() + "'.");
+          std::string old_name = tank->name;
+          tank->name = value;
+          bc::info(user_id, "Renamed {} to {}.", old_name, value);
           return;
         }
       }
@@ -929,45 +981,45 @@ namespace czh::cmd
         auto [option, arg] = *v;
         if (option == "tick")
         {
-          g::tick = std::chrono::milliseconds(arg);
-          msg::info(user_id, "Tick was set to " + std::to_string(arg) + ".");
+          cfg::config.tick = std::chrono::milliseconds(arg);
+          bc::info(user_id, "Tick was set to {}.", arg);
         }
         else if (option == "seed")
         {
-          g::seed = arg;
-          g::output_inited = false;
-          msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
+          map::map.seed = arg;
+          draw::state.inited = false;
+          bc::info(user_id, "Seed was set to {}.", arg);
         }
         else if (option == "msgTTL")
         {
-          g::msg_ttl = std::chrono::milliseconds(arg);
-          msg::info(user_id, "Message TTL was set to " + std::to_string(arg) + ".");
+          cfg::config.msg_ttl = std::chrono::milliseconds(arg);
+          bc::info(user_id, "Message TTL was set to {}.", arg);
         }
         else if (option == "longPressTH")
         {
-          g::long_pressing_threshold = arg;
-          msg::info(user_id, "Long press threshold was set to " + std::to_string(arg) + ".");
+          cfg::config.long_pressing_threshold = arg;
+          bc::info(user_id, "Long press threshold was set to {}.", arg);
         }
       }
       else if (auto v = call.get_if(
         [&call, &user_id](const std::string& key, bool arg)
         {
           return call.assert(key == "unsafe", "Invalid option.")
-                 && call.assert(g::unsafe_mode || user_id == g::user_id,
+                 && call.assert(cfg::config.unsafe_mode || user_id == g::state.id,
                                 "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
         auto [option, arg] = *v;
-        g::unsafe_mode = arg;
+        cfg::config.unsafe_mode = arg;
         if (arg)
-          msg::warn(user_id, "Unsafe mode enabled.");
+          bc::warn(user_id, "Unsafe mode enabled.");
         else
-          msg::info(user_id, "Unsafe mode disbaled.");
+          bc::info(user_id, "Unsafe mode disbaled.");
       }
       else if (auto v = call.get_if(
         [&call](int id, const std::string& f, const std::string& key, int value)
         {
-          bool ok = call.assert(utils::is_valid_id(id), "Invalid ID.")
+          bool ok = call.assert(is_valid_id(id), "Invalid ID.")
                     && call.assert(f == "bullet" && (key == "hp" || key == "lethality" || key == "range"),
                                    "Invalid option");
           if (ok && key == "range" && value <= 0)
@@ -979,24 +1031,22 @@ namespace czh::cmd
         }); v)
       {
         auto [id, bulletstr, key, value] = *v;
+        auto tank = g::id_at(id);
         if (key == "hp")
         {
-          game::id_at(id)->get_info().bullet.hp = value;
-          msg::info(user_id,
-                    "The HP of " + game::id_at(id)->get_name() + "'s bullet was set to " + std::to_string(value) + ".");
+          tank->bullet_hp = value;
+          bc::info(user_id, "The HP of {}'s bullet was set to {}.", tank->name, value);
         }
         else if (key == "lethality")
         {
-          game::id_at(id)->get_info().bullet.lethality = value;
-          msg::info(user_id,
-                    "The lethality of " + game::id_at(id)->get_name()
-                    + "'s bullet was set to " + std::to_string(value) + ".");
+          tank->bullet_lethality = value;
+          bc::info(user_id,
+                    "The lethality of {}'s bullet was set to {}.", tank->name, value);
         }
         else if (key == "range")
         {
-          game::id_at(id)->get_info().bullet.range = value;
-          msg::info(user_id, "The range of " + game::id_at(id)->get_name()
-                             + "'s bullet was set to " + std::to_string(value) + ".");
+          tank->bullet_range = value;
+          bc::info(user_id, "The range of {}'s bullet was set to {}.", tank->name, value);
         }
       }
       else goto invalid_args;
@@ -1004,120 +1054,120 @@ namespace czh::cmd
     else if (call.is("server"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      //std::lock_guard dl(g::drawing_mtx);
+      //std::lock_guard dl(drawing::drawing_mtx);
       if (auto v = call.get_if(
         [&call](const std::string& key, int port)
         {
           return call.assert(key == "start", "Invalid option")
-                 && call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to start server mode.")
-                 && call.assert(utils::is_port(port), "Invalid port.");
+                 && call.assert(g::state.mode == g::Mode::NATIVE, "Invalid request to start server mode.")
+                 && call.assert(is_port(port), "Invalid port.");
         }); v)
       {
         auto [s, port] = *v;
-        g::online_server.init();
-        g::online_server.start(port);
-        g::game_mode = g::GameMode::SERVER;
-        msg::info(user_id, "Server started at " + std::to_string(port));
+        online::svr.init();
+        online::svr.start(port);
+        g::state.mode = g::Mode::SERVER;
+        bc::info(user_id, "Server started at {}.", port);
       }
       else if (auto v = call.get_if(
         [&call](const std::string& key)
         {
           return call.assert(key == "stop", "Invalid option.")
-                 && call.assert(g::game_mode == g::GameMode::SERVER, "Invalid request to stop server mode.");
+                 && call.assert(g::state.mode == g::Mode::SERVER, "Invalid request to stop server mode.");
         }); v)
       {
-        g::online_server.stop();
-        for (auto& r : g::userdata)
+        online::svr.stop();
+        for (auto& r : g::state.users)
         {
           if (r.first == 0) continue;
-          g::tanks[r.first]->kill();
-          g::tanks[r.first]->clear();
-          delete g::tanks[r.first];
-          g::tanks.erase(r.first);
+          g::state.tanks[r.first]->kill();
+          g::state.tanks[r.first]->clear();
+          delete g::state.tanks[r.first];
+          g::state.tanks.erase(r.first);
         }
-        g::userdata = {{0, g::userdata[0]}};
-        g::game_mode = g::GameMode::NATIVE;
-        msg::info(user_id, "Server stopped");
+        g::state.users = {{0, g::state.users[0]}};
+        g::state.mode = g::Mode::NATIVE;
+        bc::info(user_id, "Server stopped.");
       }
       else goto invalid_args;
     }
     else if (call.is("connect"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       if (auto v = call.get_if(
         [&call](const std::string& ip, int port)
         {
-          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
-                 && call.assert(utils::is_ip(ip), "Invalid IP.")
-                 && call.assert(utils::is_port(port), "Invalid port.");
+          return call.assert(g::state.mode == g::Mode::NATIVE, "Invalid request to connect a server.")
+                 && call.assert(is_ip(ip), "Invalid IP.")
+                 && call.assert(is_port(port), "Invalid port.");
         }); v)
       {
         auto [ip, port] = *v;
-        g::online_client.init();
-        auto try_connect = g::online_client.connect(ip, port);
+        online::cli.init();
+        auto try_connect = online::cli.connect(ip, port);
         if (try_connect.has_value())
         {
-          g::game_mode = g::GameMode::CLIENT;
-          g::user_id = *try_connect;
-          g::tank_focus = g::user_id;
-          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id, .active = true}}};
-          g::output_inited = false;
-          msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
+          g::state.mode = g::Mode::CLIENT;
+          g::state.id = *try_connect;
+          draw::state.focus = g::state.id;
+          g::state.users = {{g::state.id, g::UserData{.user_id = g::state.id, .active = true}}};
+          draw::state.inited = false;
+          bc::info(user_id, "Connected to {}:{} as {}.", ip, port, g::state.id);
         }
       }
       else if (auto v = call.get_if(
         [&call](const std::string& ip, int port, const std::string& f, int id)
         {
-          return call.assert(g::game_mode == g::GameMode::NATIVE, "Invalid request to connect a server.")
-                 && call.assert(utils::is_ip(ip), "Invalid IP.")
-                 && call.assert(utils::is_port(port), "Invalid port.")
+          return call.assert(g::state.mode == g::Mode::NATIVE, "Invalid request to connect a server.")
+                 && call.assert(is_ip(ip), "Invalid IP.")
+                 && call.assert(is_port(port), "Invalid port.")
                  && call.assert(f == "as", "Invalid option")
                  && call.assert(id >= 0, "Invalid ID.");
         }); v)
       {
         auto [ip, port, f, id] = *v;
-        g::online_client.init();
-        int try_connect = g::online_client.reconnect(ip, port, id);
+        online::cli.init();
+        int try_connect = online::cli.reconnect(ip, port, id);
         if (try_connect == 0)
         {
-          g::game_mode = g::GameMode::CLIENT;
-          g::user_id = static_cast<size_t>(id);
-          g::tank_focus = g::user_id;
-          g::userdata = {{g::user_id, g::UserData{.user_id = g::user_id, .active = true}}};
-          g::output_inited = false;
-          msg::info(user_id, "Reconnected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
+          g::state.mode = g::Mode::CLIENT;
+          g::state.id = static_cast<size_t>(id);
+          draw::state.focus = g::state.id;
+          g::state.users = {{g::state.id, g::UserData{.user_id = g::state.id, .active = true}}};
+          draw::state.inited = false;
+          bc::info(user_id, "Reconnected to {}:{} as {}.", ip, port, g::state.id);
         }
       }
       else goto invalid_args;
     }
     else if (call.is("disconnect"))
     {
-      if (g::game_mode != g::GameMode::CLIENT)
+      if (g::state.mode != g::Mode::CLIENT)
       {
         call.error.emplace_back("Invalid request to disconnect.");
         goto invalid_args;
       }
       if (call.args.empty())
       {
-        g::online_client.disconnect();
-        g::game_mode = g::GameMode::NATIVE;
-        g::userdata = {{0, g::userdata[g::user_id]}};
-        g::user_id = 0;
-        g::tank_focus = g::user_id;
-        g::output_inited = false;
-        msg::info(g::user_id, "Disconnected.");
+        online::cli.disconnect();
+        g::state.mode = g::Mode::NATIVE;
+        g::state.users = {{0, g::state.users[g::state.id]}};
+        g::state.id = 0;
+        draw::state.focus = g::state.id;
+        draw::state.inited = false;
+        bc::info(g::state.id, "Disconnected.");
       }
       else goto invalid_args;
     }
     else if (call.is("tell"))
     {
-      int id = -1;
+      size_t id = bc::to_everyone;
       std::string msg;
       if (auto v = call.get_if(
         [&call](int id, const std::string& msg)
         {
-          return call.assert(utils::is_valid_id(id), "Invalid ID.");
+          return call.assert(is_valid_id(id), "Invalid ID.");
         }); v)
       {
         std::tie(id, msg) = *v;
@@ -1127,21 +1177,21 @@ namespace czh::cmd
         std::tie(msg) = *v;
       }
       else goto invalid_args;
-      int ret = msg::send_message(static_cast<int>(user_id), id, msg);
+      int ret = bc::send_message(user_id, id, 0, msg);
       if (ret == 0)
-        msg::info(user_id, "Message sent.");
+        bc::info(user_id, "Message sent.");
       else
-        msg::info(user_id, "Failed sending message.");
+        bc::info(user_id, "Failed sending message.");
     }
     else if (call.is("save"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
         [&call, &user_id](const std::string& fn)
         {
-          return call.assert(g::unsafe_mode || user_id == g::user_id,
+          return call.assert(cfg::config.unsafe_mode || user_id == g::state.id,
                              "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
@@ -1152,24 +1202,24 @@ namespace czh::cmd
       std::ofstream out(filename, std::ios::binary);
       if (!out.good())
       {
-        msg::error(user_id, "Failed to open '" + filename + "'.");
+        bc::error(user_id, "Failed to open '{}'.", filename);
         return;
       }
 
-      auto archive = ser::serialize(archive::archive());
+      auto archive = utils::serialize(ar::archive());
       out.write(archive.c_str(), static_cast<std::streamsize>(archive.size()));
       out.close();
-      msg::info(user_id, "Saved to '" + filename + "'.");
+      bc::info(user_id, "Saved to '{}'.", filename);
     }
     else if (call.is("load"))
     {
       std::lock_guard ml(g::mainloop_mtx);
-      std::lock_guard dl(g::drawing_mtx);
+      std::lock_guard dl(draw::drawing_mtx);
       std::string filename;
       if (auto v = call.get_if(
         [&call, &user_id](const std::string& fn)
         {
-          return call.assert(g::unsafe_mode || user_id == g::user_id,
+          return call.assert(cfg::config.unsafe_mode || user_id == g::state.id,
                              "This command can only be executed by the server itself. (see '/help' for a workaround)");
         }); v)
       {
@@ -1180,7 +1230,7 @@ namespace czh::cmd
       std::ifstream in(filename, std::ios::binary);
       if (!in.good())
       {
-        msg::error(user_id, "Failed to open '" + filename + "'.");
+        bc::error(user_id, "Failed to open '{}'.", filename);
         return;
       }
       std::string tmp;
@@ -1190,13 +1240,13 @@ namespace czh::cmd
       tmp.resize(length);
       in.read(tmp.data(), length);
       in.close();
-      archive::load(ser::deserialize<archive::Archive>(tmp));
-      g::output_inited = false;
-      msg::info(user_id, "Loaded from '" + filename + "'.");
+      ar::load(utils::deserialize<ar::Archive>(tmp));
+      draw::state.inited = false;
+      bc::info(user_id, "Loaded from '{}'.", filename);
     }
     else
     {
-      msg::error(user_id, "Invalid command. Type '/help' for more infomation.");
+      bc::error(user_id, "Invalid command. Type '/help' for more infomation.");
       return;
     }
 
@@ -1205,17 +1255,17 @@ namespace czh::cmd
     if (!call.error.empty())
     {
       for (auto& r : call.error)
-        msg::error(user_id, r);
+        bc::error(user_id, r);
     }
     else
     [[unlikely]]
     {
-      auto it = std::find_if(g::commands.cbegin(), g::commands.cend(),
+      auto it = std::find_if(commands.cbegin(), commands.cend(),
                              [&call](auto&& f) { return f.cmd == call.name; });
-      if (it != g::commands.end())
-        msg::error(user_id, "Invalid arguments.(" + utils::color_256_fg(it->cmd + " " + it->args, 9) + ")");
+      if (it != commands.end())
+        bc::error(user_id, "Invalid arguments.({})", utils::color_256_fg(it->cmd + " " + it->args, 9));
       else[[unlikely]]
-          msg::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
+          bc::error(user_id, "Invalid arguments. Type '/help' for more infomation.(UNEXPECTED)");
     }
   }
 }

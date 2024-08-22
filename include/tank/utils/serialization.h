@@ -24,7 +24,7 @@
 #include <array>
 #include <cstring>
 
-namespace czh::ser
+namespace czh::utils
 {
   template<typename T>
   std::decay_t<T> deserialize(const std::string& str);

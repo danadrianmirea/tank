@@ -19,6 +19,7 @@
 #include <string>
 #include <random>
 #include <type_traits>
+#include <regex>
 
 namespace czh::utils
 {
@@ -103,83 +104,12 @@ namespace czh::utils
     return ret;
   }
 
-  void tank_assert(bool b, const std::string& detail_ = "Assertion failed.");
-
   template<typename T>
     requires (!std::is_same_v<std::string, std::decay_t<T> >) &&
              (!std::is_same_v<const char*, std::decay_t<T> >)
   std::string to_str(T&& a)
   {
     return std::to_string(std::forward<T>(a));
-  }
-
-  std::string to_str(const std::string& a);
-
-  std::string to_str(const char*& a);
-
-  std::string to_str(char a);
-
-  template<typename T, typename... Args>
-  std::string join(char, T&& arg)
-  {
-    return to_str(arg);
-  }
-
-  template<typename T, typename... Args>
-  std::string join(char delim, T&& arg, Args&&... args)
-  {
-    return to_str(arg) + delim + join(delim, std::forward<Args>(args)...);
-  }
-
-  template<typename... Args>
-  std::string join(char delim, Args&&... args)
-  {
-    return join(delim, std::forward<Args>(args)...);
-  }
-
-  template<typename T, typename... Args>
-  std::string contact(T&& arg)
-  {
-    return to_str(arg);
-  }
-
-  template<typename T, typename... Args>
-  std::string contact(T&& arg, Args&&... args)
-  {
-    return to_str(arg) + contact(std::forward<Args>(args)...);
-  }
-
-  template<typename... Args>
-  std::string contact(Args&&... args)
-  {
-    return contact(std::forward<Args>(args)...);
-  }
-
-  bool begin_with(const std::string& a, const std::string& b);
-
-  bool is_ip(const std::string& s);
-
-  bool is_port(const int p);
-
-  bool is_valid_id(const int id);
-
-  bool is_alive_id(const int id);
-
-  bool is_valid_id(const std::string& s);
-
-  bool is_alive_id(const std::string& s);
-
-  bool is_integer(const std::string& r);
-
-
-  size_t display_width(const std::string::const_iterator& beg, const std::string::const_iterator& end);
-
-  size_t display_width(const std::string& str);
-
-  template<typename... Args>
-  size_t display_width(const std::string& str, Args&&... args)
-  {
-    return display_width(str) + display_width(std::forward<Args>(args)...);
   }
 
   std::string setw(size_t w, std::string s);
@@ -211,5 +141,103 @@ namespace czh::utils
       num /= 10;
     return len;
   }
+
+  inline void tank_assert(bool b, const std::string& detail_ = "Assertion failed.")
+  {
+    if (!b)
+    {
+      throw std::runtime_error(detail_);
+    }
+  }
+
+  inline std::string to_str(const std::string& a)
+  {
+    return a;
+  }
+
+  inline std::string to_str(const char*& a)
+  {
+    return {a};
+  }
+
+  inline std::string to_str(char a)
+  {
+    return {1, a};
+  }
+
+  inline bool begin_with(const std::string& a, const std::string& b)
+  {
+    if (a.size() < b.size()) return false;
+    for (size_t i = 0; i < b.size(); ++i)
+    {
+      if (a[i] != b[i])
+      {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  inline size_t display_width(const std::string::const_iterator& beg, const std::string::const_iterator& end)
+  {
+    size_t ret = 0;
+    std::string n;
+    for (auto it = beg; it < end; ++it)
+    {
+      if (*it == '\x1b')
+      {
+        while (it < end && *it != 'm') ++it;
+        continue;
+      }
+      ++ret;
+      n += *it;
+    }
+    return ret;
+  }
+
+  inline size_t display_width(const std::string& str)
+  {
+    return display_width(str.cbegin(), str.cend());
+  }
+
+  template<typename... Args>
+  size_t display_width(const std::string& str, Args&&... args)
+  {
+    return display_width(str) + display_width(std::forward<Args>(args)...);
+  }
+
+  inline std::string setw(size_t w, std::string s)
+  {
+    auto sz = display_width(s);
+    if (sz >= w)
+      return s;
+    s.insert(s.end(), w - sz, ' ');
+    return s;
+  }
+
+  inline std::string color_256_fg(const std::string& str, int color)
+  {
+    return "\x1b[38;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
+  }
+
+  inline std::string color_256_bg(const std::string& str, int color)
+  {
+    return "\x1b[48;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
+  }
+
+  //  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
+  //  {
+  //    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"
+  //           + std::to_string(rgb.g) + ";"
+  //           + std::to_string(rgb.b) + "m"
+  //           + str + "\x1b[0m";
+  //  }
+  //  std::string color_rgb_bg(const std::string &str, const RGB& rgb)
+  //  {
+  //    return "\x1b[48;2;" + std::to_string(rgb.r) + ";"
+  //           + std::to_string(rgb.g) + ";"
+  //           + std::to_string(rgb.b) + "m"
+  //           + str + "\x1b[0m";
+  //  }
 }
 #endif

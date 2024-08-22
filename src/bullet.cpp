@@ -11,9 +11,7 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/globals.h"
 #include "tank/bullet.h"
-#include "tank/info.h"
 
 namespace czh::bullet
 {
@@ -23,54 +21,54 @@ namespace czh::bullet
     switch (direction)
     {
       case map::Direction::UP:
-        ret = g::game_map.bullet_up(this, pos);
+        ret = map::map.bullet_up(this, pos);
         if (ret != 0)
         {
-          info.hp -= 1;
+          hp -= 1;
           direction = map::Direction::DOWN;
         }
         else
         {
-          info.range -= 1;
+          range -= 1;
           pos.y++;
         }
         break;
       case map::Direction::DOWN:
-        ret = g::game_map.bullet_down(this, pos);
+        ret = map::map.bullet_down(this, pos);
         if (ret != 0)
         {
-          info.hp -= 1;
+          hp -= 1;
           direction = map::Direction::UP;
         }
         else
         {
-          info.range -= 1;
+          range -= 1;
           pos.y--;
         }
         break;
       case map::Direction::LEFT:
-        ret = g::game_map.bullet_left(this, pos);
+        ret = map::map.bullet_left(this, pos);
         if (ret != 0)
         {
-          info.hp -= 1;
+          hp -= 1;
           direction = map::Direction::RIGHT;
         }
         else
         {
-          info.range -= 1;
+          range -= 1;
           pos.x--;
         }
         break;
       case map::Direction::RIGHT:
-        ret = g::game_map.bullet_right(this, pos);
+        ret = map::map.bullet_right(this, pos);
         if (ret != 0)
         {
-          info.hp -= 1;
+          hp -= 1;
           direction = map::Direction::LEFT;
         }
         else
         {
-          info.range -= 1;
+          range -= 1;
           pos.x++;
         }
         break;
@@ -87,7 +85,7 @@ namespace czh::bullet
 
   [[nodiscard]] bool Bullet::is_alive() const
   {
-    return info.hp > 0 && info.range > 0;
+    return hp > 0 && range > 0;
   }
 
   [[nodiscard]] std::size_t Bullet::get_tank() const
@@ -97,26 +95,16 @@ namespace czh::bullet
 
   void Bullet::kill()
   {
-    info.hp = 0;
-  }
-
-  [[nodiscard]] const map::Pos& Bullet::get_pos() const
-  {
-    return pos;
-  }
-
-  map::Pos& Bullet::get_pos()
-  {
-    return pos;
+    hp = 0;
   }
 
   [[nodiscard]] int Bullet::get_lethality() const
   {
-    return info.lethality;
+    return lethality;
   }
 
   [[nodiscard]] size_t Bullet::get_id() const
   {
-    return info.id;
+    return id;
   }
 }

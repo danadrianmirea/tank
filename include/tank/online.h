@@ -274,5 +274,15 @@ namespace czh::online
 
     [[nodiscard]] std::string get_host() const;
   };
+
+  struct OnlineState
+  {
+    int client_failed_attempts;
+    int delay; // ms
+  };
+  extern OnlineState state;
+  extern TankServer svr;
+  extern TankClient cli;
+  extern std::mutex online_mtx;
 }
 #endif

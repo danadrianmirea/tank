@@ -16,10 +16,13 @@
 #pragma once
 
 #include "game_map.h"
-#include "bullet.h"
 #include <utility>
-#include <variant>
 #include <functional>
+
+namespace czh::ar
+{
+  class Archiver;
+}
 
 namespace czh::tank
 {
@@ -37,16 +40,34 @@ namespace czh::tank
 
   class Tank
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
+
   protected:
-    info::TankInfo info;
-    int hp;
-    map::Pos pos;
-    map::Direction direction;
+    size_t id;
     bool hascleared;
 
   public:
-    Tank(const info::TankInfo& info_, map::Pos pos_);
+    bool is_auto;
+    std::string name;
+    int max_hp;
+    int hp;
+    map::Pos pos;
+    map::Direction direction;
+
+    int bullet_hp;
+    int bullet_lethality;
+    int bullet_range;
+
+  public:
+    Tank(bool is_auto_, size_t id_, std::string name_, int max_hp_, map::Pos pos_,
+         int bullet_hp_, int bullet_lethality_, int bullet_range_)
+      : id(id_), hascleared(false), is_auto(is_auto_),
+        name(std::move(name_)), max_hp(max_hp_), pos(pos_),
+        direction(map::Direction::UP), hp(max_hp_),
+        bullet_hp(bullet_hp_), bullet_lethality(bullet_lethality_), bullet_range(bullet_range_)
+    {
+      map::map.add_tank(this, pos);
+    }
 
     virtual ~Tank() = default;
 
@@ -62,19 +83,7 @@ namespace czh::tank
 
     int fire();
 
-    [[nodiscard]] bool is_auto() const;
-
     [[nodiscard]] std::size_t get_id() const;
-
-    std::string& get_name();
-
-    [[nodiscard]] const std::string& get_name() const;
-
-    [[nodiscard]] int get_hp() const;
-
-    [[nodiscard]] int& get_hp();
-
-    [[nodiscard]] int get_max_hp() const;
 
     [[nodiscard]] bool is_alive() const;
 
@@ -82,35 +91,24 @@ namespace czh::tank
 
     void clear();
 
-    map::Pos& get_pos();
-
     virtual void attacked(int lethality_);
-
-    [[nodiscard]] const map::Pos& get_pos() const;
-
-    [[nodiscard]] map::Direction& get_direction();
-
-    [[nodiscard]] const map::Direction& get_direction() const;
-
-    [[nodiscard]] info::TankType get_type() const;
-
-    [[nodiscard]] const info::TankInfo& get_info() const;
-
-    [[nodiscard]] info::TankInfo& get_info();
 
     void revive(const map::Pos& newpos);
   };
 
   class NormalTank : public Tank
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
+
   private:
     NormalTankEvent auto_event;
     bool auto_driving;
 
   public:
-    NormalTank(const info::TankInfo& info_, map::Pos pos_)
-      : Tank(info_, pos_), auto_event(NormalTankEvent::UP), auto_driving(false)
+    NormalTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_,
+               int bullet_hp_, int bullet_lethality_, int bullet_range_)
+      : Tank(false, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_),
+        auto_event(NormalTankEvent::UP), auto_driving(false)
     {
     }
 
@@ -138,53 +136,51 @@ namespace czh::tank
     }
   };
 
-  AutoTankEvent get_pos_direction(const map::Pos& from, const map::Pos& to);
-
   struct Node
   {
     map::Pos pos;
     map::Pos dest;
     map::Pos last;
-    int G;
-    int F;
+    int G{0};
+    int F{0};
 
     [[nodiscard]] std::vector<Node> get_neighbors() const;
+
   private:
-    Node make_next(const map::Pos& p) const;
+    [[nodiscard]] Node make_next(const map::Pos& p) const;
   };
 
   bool operator<(const Node& n1, const Node& n2);
 
-  bool is_fire_spot(int range, const map::Pos& pos, const map::Pos& target_pos, bool curr_at_pos);
-
-  std::vector<map::Pos> find_route_between(map::Pos src, map::Pos dest,
-    const std::function<bool(const map::Pos&)>& pred);
-
   class AutoTank : public Tank
   {
-    friend class archive::Archiver;
+    friend class ar::Archiver;
+
+  public:
+    int gap;
+
   private:
     std::size_t target_id;
-
     std::vector<AutoTankEvent> route;
     std::size_t route_pos;
-
     int gap_count;
-
     bool has_good_target;
 
   public:
-    AutoTank(const info::TankInfo& info_, map::Pos pos_)
-      : Tank(info_, pos_), target_id(0), route_pos(0), gap_count(0), has_good_target(false)
-    {}
+    AutoTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_, int gap_,
+             int bullet_hp_, int bullet_lethality_, int bullet_range_)
+      : Tank(true, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_),
+        gap(gap_), target_id(0), route_pos(0), gap_count(0), has_good_target(false)
+    {
+    }
 
     ~AutoTank() override = default;
 
-    int set_target(std::size_t id);
+    [[nodiscard]] int set_target(std::size_t id);
 
-    bool is_target_good() const;
+    [[nodiscard]] bool is_target_good() const;
 
-    size_t get_target_id() const;
+    [[nodiscard]] size_t get_target_id() const;
 
     void react();
 
@@ -193,7 +189,7 @@ namespace czh::tank
   private:
     void generate_random_route();
 
-    [[nodiscard]]int find_route();
+    [[nodiscard]] int find_route();
   };
 }
 #endif

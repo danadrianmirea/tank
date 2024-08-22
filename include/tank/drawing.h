@@ -19,8 +19,9 @@
 
 #include <string>
 #include <set>
+#include <mutex>
 
-namespace czh::drawing
+namespace czh::draw
 {
   // Xterm 256 color
   // https://www.ditig.com/publications/256-colors-cheat-sheet
@@ -60,14 +61,18 @@ namespace czh::drawing
 
   struct TankView
   {
-    info::TankInfo info{};
+    size_t id{0};
+    std::string name;
+    int max_hp{0};
     int hp{0};
-    map::Pos pos;
-    map::Direction direction{map::Direction::END};
     bool is_auto{false};
     bool is_alive{false};
+    map::Pos pos;
+    map::Direction direction{map::Direction::END};
+    int bullet_lethality{0};
+    int gap{0};
+    std::size_t target_id{0};
     bool has_good_target{false};
-    size_t target_id{0};
   };
 
   struct UserView
@@ -85,8 +90,29 @@ namespace czh::drawing
     std::map<size_t, UserView> userinfo;
   };
 
-  extern PointView empty_point_view;
-  extern PointView wall_point_view;
+  struct DrawState
+  {
+    bool inited;
+    size_t focus;
+    std::vector<std::string> help_text;
+    std::vector<std::string> status_text;
+    size_t status_pos;
+    size_t help_pos;
+    size_t notification_pos;
+    map::Zone visible_zone;
+    std::size_t height;
+    std::size_t width;
+    int fps;
+    Snapshot snapshot;
+    std::chrono::steady_clock::time_point last_drawing;
+    std::chrono::steady_clock::time_point last_message_displayed;
+    Style style;
+  };
+  extern DrawState state;
+  extern std::mutex drawing_mtx;
+
+  extern const PointView empty_point_view;
+  extern const PointView wall_point_view;
 
   const PointView& generate(const map::Pos& i, size_t seed);
 

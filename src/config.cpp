@@ -11,35 +11,17 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_INFO_H
-#define TANK_INFO_H
-#pragma once
 
-#include <string>
+#include "tank/config.h"
+#include <chrono>
 
-namespace czh::info
+namespace czh::cfg
 {
-  struct BulletInfo
+  Config config
   {
-    size_t id{0};
-    int hp{0};
-    int lethality{0};
-    int range{0};
-  };
-
-  enum class TankType
-  {
-    AUTO, NORMAL
-  };
-
-  struct TankInfo
-  {
-    size_t id{0};
-    int max_hp{0};
-    std::string name;
-    int gap{0};
-    TankType type{TankType::AUTO};
-    BulletInfo bullet;
+    .tick = std::chrono::milliseconds(16),
+    .msg_ttl = std::chrono::milliseconds(2000),
+    .unsafe_mode = false,
+    .long_pressing_threshold = 80000
   };
 }
-#endif

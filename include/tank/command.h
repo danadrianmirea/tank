@@ -15,7 +15,8 @@
 #define TANK_COMMAND_H
 #pragma once
 
-#include "type_list.h"
+#include "input.h"
+#include "utils/type_list.h"
 #include <variant>
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@
 #include <functional>
 #include <optional>
 #include <stdexcept>
+#include <set>
 
 namespace czh::cmd
 {
@@ -37,32 +39,25 @@ namespace czh::cmd
     bool is_alive_id(int s);
   }
 
-  struct Hint
-  {
-    std::string hint;
-    bool applicable;
-  };
-
-  using Hints = std::vector<Hint>;
-  using HintProvider = std::function<Hints(const std::string&)>;
-
   struct CommandInfo
   {
     std::string cmd;
     std::string args;
-    std::vector<HintProvider> hint_providers;
+    std::vector<input::HintProvider> hint_providers;
   };
 
+  extern const std::set<std::string> remote_cmds;
+  extern const std::vector<cmd::CommandInfo> commands;
   namespace details
   {
-    using ArgTList = type_list::TypeList<std::string, int, bool>;
+    using ArgTList = utils::TypeList<std::string, int, bool>;
     using Arg = decltype(as_variant(ArgTList{}));
 
     template<typename T>
-      requires(type_list::contains_v<T, ArgTList>)
+      requires(utils::contains_v<T, ArgTList>)
     T arg_get(const Arg& a)
     {
-      if (a.index() != type_list::index_of_v<T, ArgTList>)
+      if (a.index() != utils::index_of_v<T, ArgTList>)
       {
         throw std::runtime_error("Get wrong type.");
       }
@@ -74,7 +69,7 @@ namespace czh::cmd
     {
       return std::vector<size_t>{
         {
-          type_list::index_of_v<Args, ArgTList>
+          utils::index_of_v<Args, ArgTList>
         }...
       };
     }
@@ -85,7 +80,7 @@ namespace czh::cmd
       auto tmp = std::make_tuple(v[index]...);
       auto args = std::apply([](auto&&... elems)
       {
-        return std::make_tuple(arg_get<type_list::index_at_t<index, List> >(elems)...);
+        return std::make_tuple(arg_get<utils::index_at_t<index, List> >(elems)...);
       }, tmp);
       return func(std::get<index>(args)...);
     }
@@ -96,7 +91,7 @@ namespace czh::cmd
       auto tmp = std::make_tuple(v[index]...);
       auto args = std::apply([](auto&&... elems)
       {
-        return std::make_tuple(arg_get<type_list::index_at_t<index, List> >(elems)...);
+        return std::make_tuple(arg_get<utils::index_at_t<index, List> >(elems)...);
       }, tmp);
       return args;
     }
@@ -109,7 +104,7 @@ namespace czh::cmd
     template<typename... Args>
     struct get_func_args<std::function<bool(Args...)> >
     {
-      using args = type_list::TypeList<std::remove_cvref_t<Args>...>;
+      using args = utils::TypeList<std::remove_cvref_t<Args>...>;
     };
 
     template<typename T>
@@ -123,18 +118,18 @@ namespace czh::cmd
     {
       throw std::runtime_error("Invalid call.");
     }
-    return details::call_with_args_impl<Func, type_list::TypeList<Args...> >
+    return details::call_with_args_impl<Func, utils::TypeList<Args...> >
         (std::forward<Func>(func), v, std::make_index_sequence<sizeof...(Args)>());
   }
 
   template<typename List>
   auto args_get(const std::vector<details::Arg>& v)
   {
-    if (v.size() != type_list::size_of_v<List>)
+    if (v.size() != utils::size_of_v<List>)
     {
       throw std::runtime_error("Invalid get.");
     }
-    return details::args_get_impl<List>(v, std::make_index_sequence<type_list::size_of_v<List> >());
+    return details::args_get_impl<List>(v, std::make_index_sequence<utils::size_of_v<List> >());
   }
 
   template<typename... Args>
