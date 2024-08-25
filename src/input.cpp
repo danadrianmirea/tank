@@ -18,6 +18,7 @@
 #include "tank/command.h"
 #include "tank/config.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 
 #include <string>
 #include <vector>
@@ -180,7 +181,7 @@ namespace czh::input
       else
         term::output(color("<"));
       size_t sz = end - beg;
-      utils::tank_assert(beg + sz - 1 < state.line.size());
+      dbg::tank_assert(beg + sz - 1 < state.line.size());
       term::output(state.line.substr(beg, sz));
       if (end - beg == draw::state.width - 2 && end != state.line.size())
         term::output(color(">"));

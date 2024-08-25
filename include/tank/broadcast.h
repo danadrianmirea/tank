@@ -19,16 +19,18 @@
 #include "message.h"
 
 #include <utility>
-#include <string_view>
+#include <mutex>
 
 namespace czh::bc
 {
+  extern std::mutex send_msg_mtx;
   constexpr size_t to_everyone = (std::numeric_limits<size_t>::max)();
   constexpr size_t from_system = (std::numeric_limits<size_t>::max)();
 
   template<typename... Args>
   int send_message(size_t from, size_t to, int priority, const std::string& c)
   {
+    std::lock_guard sl(send_msg_mtx);
     msg::Message msg{
       .from = from, .content = c,
       .priority = priority, .read = false,

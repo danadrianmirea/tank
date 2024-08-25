@@ -17,6 +17,7 @@
 #include "tank/bullet.h"
 #include "tank/broadcast.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 #include <optional>
 #include <mutex>
 #include <vector>
@@ -197,7 +198,7 @@ namespace czh::g
     //auto tank
     for (auto& tank : state.tanks | std::views::values)
     {
-      utils::tank_assert(tank != nullptr);
+      dbg::tank_assert(tank != nullptr);
       if (tank->is_alive())
       {
         if (tank->is_auto)
@@ -274,7 +275,7 @@ namespace czh::g
         int lethality = 0;
         int attacker = -1;
         auto bullets_instance = map::map.at(b->pos).get_bullets();
-        utils::tank_assert(!bullets_instance.empty());
+        dbg::tank_assert(!bullets_instance.empty());
         for (auto& bi : bullets_instance)
         {
           if (bi->is_alive())
@@ -288,7 +289,7 @@ namespace czh::g
           if (auto tank = map::map.at(b->pos).get_tank(); tank != nullptr)
           {
             auto tank_attacker = id_at(attacker);
-            utils::tank_assert(tank_attacker != nullptr);
+            dbg::tank_assert(tank_attacker != nullptr);
             if (tank->is_auto)
             {
               auto t = dynamic_cast<tank::AutoTank*>(tank);
@@ -316,7 +317,7 @@ namespace czh::g
     }
     if (state.mode == g::Mode::CLIENT)
     {
-      online::cli.disconnect();
+      online::cli.logout();
     }
     else if (state.mode == g::Mode::SERVER)
     {

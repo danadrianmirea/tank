@@ -16,6 +16,7 @@
 #include "tank/game_map.h"
 #include "tank/bullet.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 #include <map>
 #include <set>
 #include <list>
@@ -72,7 +73,7 @@ namespace czh::tank
     return ret;
   }
 
-  int Tank::fire()
+  int Tank::fire() const
   {
     g::state.bullets.emplace_back(
       new bullet::Bullet(g::state.next_bullet_id++, id, pos, direction,
@@ -542,7 +543,7 @@ namespace czh::tank
           if (map::map.at(i, j).has(map::Status::TANK))
           {
             auto t = map::map.at(i, j).get_tank();
-            utils::tank_assert(t != nullptr);
+            dbg::tank_assert(t != nullptr);
             if (t->is_alive())
             {
               target_id = t->get_id();

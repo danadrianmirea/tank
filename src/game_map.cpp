@@ -14,6 +14,7 @@
 #include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 #include <vector>
 #include <ranges>
 
@@ -65,13 +66,13 @@ namespace czh::map
 
   tank::Tank* Point::get_tank() const
   {
-    utils::tank_assert(has(Status::TANK));
+    dbg::tank_assert(has(Status::TANK));
     return tank;
   }
 
   const std::vector<bullet::Bullet*>& Point::get_bullets() const
   {
-    utils::tank_assert(has(Status::BULLET));
+    dbg::tank_assert(has(Status::BULLET));
     return bullets;
   }
 
@@ -368,7 +369,7 @@ namespace czh::map
         ++it;
       }
     }
-    utils::tank_assert(ok);
+    dbg::tank_assert(ok);
     for (auto it = old_point.statuses.begin(); it != old_point.statuses.end();)
     {
       if (*it == Status::BULLET)

@@ -18,6 +18,7 @@
 #include "tank/input.h"
 #include "tank/archive.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 
 namespace czh::ar
 {
@@ -116,7 +117,7 @@ namespace czh::ar
       if (pa.has_tank)
       {
         p.tank = tanks.at(pa.tank);
-        utils::tank_assert(p.tank != nullptr);
+        dbg::tank_assert(p.tank != nullptr);
       }
 
       for (auto& b : pa.bullets)

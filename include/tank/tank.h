@@ -81,7 +81,7 @@ namespace czh::tank
 
     int right();
 
-    int fire();
+    int fire() const;
 
     [[nodiscard]] std::size_t get_id() const;
 

@@ -1041,7 +1041,7 @@ namespace czh::cmd
         {
           tank->bullet_lethality = value;
           bc::info(user_id,
-                    "The lethality of {}'s bullet was set to {}.", tank->name, value);
+                   "The lethality of {}'s bullet was set to {}.", tank->name, value);
         }
         else if (key == "range")
         {
@@ -1064,10 +1064,8 @@ namespace czh::cmd
         }); v)
       {
         auto [s, port] = *v;
-        online::svr.init();
-        online::svr.start(port);
         g::state.mode = g::Mode::SERVER;
-        bc::info(user_id, "Server started at {}.", port);
+        online::svr.start(port);
       }
       else if (auto v = call.get_if(
         [&call](const std::string& key)
@@ -1104,11 +1102,10 @@ namespace czh::cmd
         }); v)
       {
         auto [ip, port] = *v;
-        online::cli.init();
-        auto try_connect = online::cli.connect(ip, port);
+        g::state.mode = g::Mode::CLIENT;
+        auto try_connect = online::cli.signup(ip, port);
         if (try_connect.has_value())
         {
-          g::state.mode = g::Mode::CLIENT;
           g::state.id = *try_connect;
           draw::state.focus = g::state.id;
           g::state.users = {{g::state.id, g::UserData{.user_id = g::state.id, .active = true}}};
@@ -1127,8 +1124,8 @@ namespace czh::cmd
         }); v)
       {
         auto [ip, port, f, id] = *v;
-        online::cli.init();
-        int try_connect = online::cli.reconnect(ip, port, id);
+        g::state.mode = g::Mode::CLIENT;
+        int try_connect = online::cli.login(ip, port, id);
         if (try_connect == 0)
         {
           g::state.mode = g::Mode::CLIENT;
@@ -1150,7 +1147,7 @@ namespace czh::cmd
       }
       if (call.args.empty())
       {
-        online::cli.disconnect();
+        online::cli.logout();
         g::state.mode = g::Mode::NATIVE;
         g::state.users = {{0, g::state.users[g::state.id]}};
         g::state.id = 0;

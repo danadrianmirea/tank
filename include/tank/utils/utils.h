@@ -142,14 +142,6 @@ namespace czh::utils
     return len;
   }
 
-  inline void tank_assert(bool b, const std::string& detail_ = "Assertion failed.")
-  {
-    if (!b)
-    {
-      throw std::runtime_error(detail_);
-    }
-  }
-
   inline std::string to_str(const std::string& a)
   {
     return a;

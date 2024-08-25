@@ -18,7 +18,9 @@
 #include "tank/config.h"
 #include "tank/broadcast.h"
 #include "tank/online.h"
+#include "tank/input.h"
 #include "tank/utils/utils.h"
+#include "tank/utils/debug.h"
 
 #include <cstring>
 
@@ -27,7 +29,6 @@
 #include <string>
 #include <iomanip>
 #include <ranges>
-#include <tank/input.h>
 
 namespace czh::draw
 {
@@ -284,7 +285,7 @@ namespace czh::draw
   map::Zone get_visible_zone(size_t id)
   {
     auto ret = get_visible_zone(state.width, state.height, id);
-    utils::tank_assert(check_zone_size(ret));
+    dbg::tank_assert(check_zone_size(ret));
     return ret;
   }
 
@@ -464,13 +465,9 @@ namespace czh::draw
     {
       int ret = online::cli.update();
       if (ret == 0)
-      {
-        online::state.client_failed_attempts = 0;
         return 0;
-      }
       else
       {
-        online::state.client_failed_attempts++;
         state.inited = false;
         return -1;
       }
@@ -1126,6 +1123,11 @@ Command:
     {
       term::move_cursor({input::state.pos - input::state.visible_line.first + 1, state.height - 1});
       term::show_cursor();
+    }
+    else if(!dbg::message.empty())
+    {
+      term::move_cursor(term::TermPos(0, state.height - 1));
+      flexible_output(dbg::message, "");
     }
     else
     {

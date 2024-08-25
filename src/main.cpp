@@ -67,55 +67,9 @@ int main()
       while (true)
       {
         std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-        if (g::state.mode == g::Mode::NATIVE)
-        {
+        if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
           g::mainloop();
-        }
-        else if (g::state.mode == g::Mode::SERVER)
-        {
-          g::mainloop();
-          std::vector<size_t> disconnected;
-          for (auto& r : g::state.users)
-          {
-            if (r.first == 0 || !r.second.active) continue;
-            auto d = std::chrono::duration_cast<std::chrono::seconds>
-                (std::chrono::steady_clock::now() - r.second.last_update);
-            if (d.count() > 5)
-            {
-              disconnected.emplace_back(r.first);
-            }
-          }
-          for (auto& r : disconnected)
-          {
-            bc::info(-1, "{} ({}) disconnected.", g::state.users[r].ip, r);
-            g::state.tanks[r]->kill();
-            g::state.tanks[r]->clear();
-            g::state.users[r].active = false;
-            if (g::state.page == g::Page::STATUS)
-              draw::state.inited = false;
-          }
-        }
-        else if (g::state.mode == g::Mode::CLIENT)
-        {
-          if (online::state.client_failed_attempts > 10)
-          {
-            online::cli.disconnect();
-            g::state.mode = g::Mode::NATIVE;
-            g::state.users = {
-              {
-                0, g::UserData{
-                  .user_id = 0,
-                  .messages = g::state.users[g::state.id].messages
-                }
-              }
-            };
-            g::state.id = 0;
-            draw::state.focus = 0;
-            draw::state.inited = false;
-            online::state.client_failed_attempts = 0;
-            bc::critical(g::state.id, "Disconnected due to network issues.");
-          }
-        }
+
         auto ret = draw::update_snapshot();
         if (ret == 0) draw::draw();
 
@@ -302,7 +256,7 @@ int main()
         std::lock_guard dl(draw::drawing_mtx);
         if (g::state.mode == g::Mode::CLIENT)
         {
-          online::cli.disconnect();
+          online::cli.logout();
           g::state.id = 0;
           draw::state.focus = g::state.id;
           draw::state.inited = false;
