@@ -19,6 +19,7 @@
 #include "tank/input.h"
 #include "tank/online.h"
 #include "tank/tank.h"
+#include "tank/term.h"
 #include "tank/utils/utils.h"
 
 #include <csignal>
