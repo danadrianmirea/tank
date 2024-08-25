@@ -19,13 +19,11 @@
 #include "tank/game.h"
 #include "tank/drawing.h"
 #include "tank/broadcast.h"
-#include "tank/config.h"
 #include "tank/utils/utils.h"
 #include "tank/utils/serialization.h"
 #include "tank/utils/debug.h"
 
 #include <string>
-#include <string_view>
 #include <chrono>
 #include <utility>
 #include <vector>
@@ -362,7 +360,15 @@ namespace czh::online
     std::lock_guard l(online_mtx);
     std::string content = make_request("logout", g::state.id);
     if (cli->send(content) < 0)
+    {
+#ifdef _WIN32
+      char buf[256];
+      strerror_s(buf, sizeof(buf), errno);
+      bc::error(g::state.id, std::format("send(): {}", buf));
+#else
       bc::error(g::state.id, std::format("send(): {}", strerror(errno)));
+#endif
+    }
     cli->disconnect();
     delete cli;
     cli = nullptr;

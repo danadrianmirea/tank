@@ -17,9 +17,9 @@
 
 #include "game_map.h"
 
-#include <string>
-#include <set>
 #include <mutex>
+#include <set>
+#include <string>
 
 namespace czh::draw
 {
@@ -32,9 +32,9 @@ namespace czh::draw
     std::vector<int> tanks;
   };
 
-  std::string colorify_text(size_t id, const std::string& str);
+  std::string colorify_text(size_t id, const std::string &str);
 
-  std::string colorify_tank(size_t id, const std::string& str);
+  std::string colorify_tank(size_t id, const std::string &str);
 
   struct PointView
   {
@@ -45,16 +45,16 @@ namespace czh::draw
     [[nodiscard]] bool is_empty() const;
   };
 
-  bool operator<(const PointView& c1, const PointView& c2);
+  bool operator<(const PointView &c1, const PointView &c2);
 
   struct MapView
   {
     std::map<map::Pos, PointView> view;
     size_t seed;
 
-    [[nodiscard]] const PointView& at(const map::Pos& i) const;
+    [[nodiscard]] const PointView &at(const map::Pos &i) const;
 
-    [[nodiscard]] const PointView& at(int x, int y) const;
+    [[nodiscard]] const PointView &at(int x, int y) const;
 
     [[nodiscard]] bool is_empty() const;
   };
@@ -90,7 +90,7 @@ namespace czh::draw
     std::map<size_t, UserView> userinfo;
   };
 
-  struct DrawState
+  struct DrawingState
   {
     bool inited;
     size_t focus;
@@ -108,19 +108,19 @@ namespace czh::draw
     std::chrono::steady_clock::time_point last_message_displayed;
     Style style;
   };
-  extern DrawState state;
+  extern DrawingState state;
   extern std::mutex drawing_mtx;
 
   extern const PointView empty_point_view;
   extern const PointView wall_point_view;
 
-  const PointView& generate(const map::Pos& i, size_t seed);
+  const PointView &generate(const map::Pos &i, size_t seed);
 
-  const PointView& generate(int x, int y, size_t seed);
+  const PointView &generate(int x, int y, size_t seed);
 
-  PointView extract_point(const map::Pos& pos);
+  PointView extract_point(const map::Pos &pos);
 
-  MapView extract_map(const map::Zone& zone);
+  MapView extract_map(const map::Zone &zone);
 
   std::map<size_t, TankView> extract_tanks();
 
@@ -131,5 +131,5 @@ namespace czh::draw
   int update_snapshot();
 
   void draw();
-}
-#endif //TANK_DRAWING_H
+} // namespace czh::draw
+#endif // TANK_DRAWING_H

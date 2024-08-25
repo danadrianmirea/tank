@@ -20,7 +20,6 @@
 #include <map>
 #include <iterator>
 #include <tuple>
-#include <variant>
 #include <array>
 #include <cstring>
 
@@ -239,10 +238,10 @@ namespace czh::utils
     constexpr bool tag_is = std::is_same_v<decltype(dispatch_tag<T>()), Tag>;
 
     template<typename T>
-    std::string internal_serialize(not_implemented_tag, const T &item);
+    std::string internal_serialize(not_implemented_tag, const T &item) = delete;
 
     template<typename T>
-    T internal_deserialize(not_implemented_tag, const std::string &str);
+    T internal_deserialize(not_implemented_tag, const std::string &str) = delete;
 
     template<typename T>
     std::string internal_serialize(int_tag, const T &item)
@@ -465,7 +464,7 @@ namespace czh::utils
       if (str.empty()) return T{};
       T ret;
       size_t pos = 0;
-      field_for_each(ret, [&str, &pos](auto &&r) { r = std::move(item_deserialize_helper<decltype(r)>(str, pos)); });
+      field_for_each(ret, [&str, &pos]<typename U>(U &&r) { r = std::move(item_deserialize_helper<U>(str, pos)); });
       return ret;
     }
 

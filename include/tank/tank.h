@@ -15,9 +15,9 @@
 #define TANK_TANK_H
 #pragma once
 
-#include "game_map.h"
-#include <utility>
 #include <functional>
+#include <utility>
+#include "game_map.h"
 
 namespace czh::ar
 {
@@ -28,14 +28,27 @@ namespace czh::tank
 {
   enum class NormalTankEvent
   {
-    UP, DOWN, LEFT, RIGHT, FIRE,
-    UP_AUTO, DOWN_AUTO, LEFT_AUTO, RIGHT_AUTO, FIRE_AUTO,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    FIRE,
+    UP_AUTO,
+    DOWN_AUTO,
+    LEFT_AUTO,
+    RIGHT_AUTO,
+    FIRE_AUTO,
     AUTO_OFF,
   };
 
   enum class AutoTankEvent
   {
-    UP, DOWN, LEFT, RIGHT, FIRE, END
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    FIRE,
+    END
   };
 
   class Tank
@@ -59,12 +72,11 @@ namespace czh::tank
     int bullet_range;
 
   public:
-    Tank(bool is_auto_, size_t id_, std::string name_, int max_hp_, map::Pos pos_,
-         int bullet_hp_, int bullet_lethality_, int bullet_range_)
-      : id(id_), hascleared(false), is_auto(is_auto_),
-        name(std::move(name_)), max_hp(max_hp_), pos(pos_),
-        direction(map::Direction::UP), hp(max_hp_),
-        bullet_hp(bullet_hp_), bullet_lethality(bullet_lethality_), bullet_range(bullet_range_)
+    Tank(bool is_auto_, size_t id_, std::string name_, int max_hp_, map::Pos pos_, int bullet_hp_,
+         int bullet_lethality_, int bullet_range_) :
+        id(id_), hascleared(false), is_auto(is_auto_), name(std::move(name_)), max_hp(max_hp_), hp(max_hp_), pos(pos_),
+        direction(map::Direction::UP), bullet_hp(bullet_hp_), bullet_lethality(bullet_lethality_),
+        bullet_range(bullet_range_)
     {
       map::map.add_tank(this, pos);
     }
@@ -93,7 +105,7 @@ namespace czh::tank
 
     virtual void attacked(int lethality_);
 
-    void revive(const map::Pos& newpos);
+    void revive(const map::Pos &newpos);
   };
 
   class NormalTank : public Tank
@@ -105,9 +117,9 @@ namespace czh::tank
     bool auto_driving;
 
   public:
-    NormalTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_,
-               int bullet_hp_, int bullet_lethality_, int bullet_range_)
-      : Tank(false, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_),
+    NormalTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_, int bullet_hp_, int bullet_lethality_,
+               int bullet_range_) :
+        Tank(false, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_),
         auto_event(NormalTankEvent::UP), auto_driving(false)
     {
     }
@@ -120,20 +132,11 @@ namespace czh::tank
       auto_driving = true;
     }
 
-    void stop_auto_drive()
-    {
-      auto_driving = false;
-    }
+    void stop_auto_drive() { auto_driving = false; }
 
-    [[nodiscard]] NormalTankEvent get_auto_event() const
-    {
-      return auto_event;
-    }
+    [[nodiscard]] NormalTankEvent get_auto_event() const { return auto_event; }
 
-    [[nodiscard]] bool is_auto_driving() const
-    {
-      return auto_driving;
-    }
+    [[nodiscard]] bool is_auto_driving() const { return auto_driving; }
   };
 
   struct Node
@@ -147,10 +150,10 @@ namespace czh::tank
     [[nodiscard]] std::vector<Node> get_neighbors() const;
 
   private:
-    [[nodiscard]] Node make_next(const map::Pos& p) const;
+    [[nodiscard]] Node make_next(const map::Pos &p) const;
   };
 
-  bool operator<(const Node& n1, const Node& n2);
+  bool operator<(const Node &n1, const Node &n2);
 
   class AutoTank : public Tank
   {
@@ -167,10 +170,10 @@ namespace czh::tank
     bool has_good_target;
 
   public:
-    AutoTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_, int gap_,
-             int bullet_hp_, int bullet_lethality_, int bullet_range_)
-      : Tank(true, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_),
-        gap(gap_), target_id(0), route_pos(0), gap_count(0), has_good_target(false)
+    AutoTank(size_t id_, std::string name_, int max_hp_, map::Pos pos_, int gap_, int bullet_hp_, int bullet_lethality_,
+             int bullet_range_) :
+        Tank(true, id_, std::move(name_), max_hp_, pos_, bullet_hp_, bullet_lethality_, bullet_range_), gap(gap_),
+        target_id(0), route_pos(0), gap_count(0), has_good_target(false)
     {
     }
 
@@ -191,5 +194,5 @@ namespace czh::tank
 
     [[nodiscard]] int find_route();
   };
-}
+} // namespace czh::tank
 #endif

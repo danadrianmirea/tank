@@ -20,6 +20,8 @@
 #include "tank/utils/utils.h"
 #include "tank/utils/debug.h"
 
+#include <ranges>
+
 namespace czh::ar
 {
   bullet::Bullet* Archiver::load_bullet(const BulletArchive& data)

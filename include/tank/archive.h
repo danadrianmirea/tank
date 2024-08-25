@@ -22,8 +22,6 @@
 #include "game.h"
 #include "config.h"
 
-#include <chrono>
-
 namespace czh::ar
 {
   struct TankArchive

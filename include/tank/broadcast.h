@@ -17,9 +17,11 @@
 
 #include "game.h"
 #include "message.h"
+#include "utils/utils.h"
 
 #include <utility>
 #include <mutex>
+#include <ranges>
 
 namespace czh::bc
 {

@@ -52,8 +52,7 @@ namespace czh::utils
 
   template<typename T, typename First, typename... Rest>
   struct contains<T, TypeList<First, Rest...> >
-      : std::conditional<std::is_same_v<T, First>, std::true_type,
-        contains<T, TypeList<Rest...> > >::type
+      : std::conditional_t<std::is_same_v<T, First>, std::true_type, contains<T, TypeList<Rest...> > >
   {
   };
 

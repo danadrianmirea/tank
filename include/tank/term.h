@@ -17,17 +17,19 @@
 
 #include <iostream>
 
-#if __has_include(<conio.h>) && __has_include(<windows.h>)
+#if __has_include(<conio.h> ) && __has_include(<windows.h> )
 #define CZH_TANK_KEYBOARD_MODE_0
 
 #include <Windows.h>
 #include <conio.h>
 
-#elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
+#elif __has_include(                                                                                                   \
+    <sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
 #define CZH_TANK_KEYBOARD_MODE_1
-
+#include <sys/ioctl.h>
+#include <sys/select.h>
 #include <termios.h>
-
+#include <unistd.h>
 #else
 #error "Unknown target."
 #endif
@@ -67,10 +69,7 @@ namespace czh::term
     std::size_t y;
 
   public:
-    TermPos(std::size_t x_, std::size_t y_)
-      : x(x_), y(y_)
-    {
-    }
+    TermPos(std::size_t x_, std::size_t y_) : x(x_), y(y_) {}
 
     [[nodiscard]] std::size_t get_x() const { return x; }
 
@@ -81,18 +80,18 @@ namespace czh::term
 
   bool kbhit();
 
-  void move_cursor(const TermPos& pos);
+  void move_cursor(const TermPos &pos);
 
   void flush();
 
   template<typename... Args>
-  void output(Args&&... args)
+  void output(Args &&...args)
   {
     (std::cout << ... << args);
   }
 
   template<typename... Args>
-  void mvoutput(const TermPos& pos, Args&&... args)
+  void mvoutput(const TermPos &pos, Args &&...args)
   {
     move_cursor(pos);
     output(std::forward<Args>(args)...);
@@ -107,5 +106,5 @@ namespace czh::term
   void hide_cursor();
 
   void show_cursor();
-}
+} // namespace czh::term
 #endif

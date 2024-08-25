@@ -12,33 +12,30 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/input.h"
+#include "tank/command.h"
+#include "tank/config.h"
 #include "tank/drawing.h"
 #include "tank/game.h"
 #include "tank/term.h"
-#include "tank/command.h"
-#include "tank/config.h"
-#include "tank/utils/utils.h"
 #include "tank/utils/debug.h"
+#include "tank/utils/utils.h"
 
-#include <string>
-#include <vector>
-#include <mutex>
 #include <algorithm>
 #include <chrono>
+#include <mutex>
+#include <string>
+#include <vector>
 
 namespace czh::input
 {
-  InputState state
-  {
-    .typing_command = false,
-    .pos = 0,
-    .visible_line = {0, 0},
-    .history_pos = 0,
-    .hint_pos = 0,
-    .last_press = std::chrono::high_resolution_clock::now(),
-    .last_input_value = Input::UNEXPECTED,
-    .long_press_mode = LongPressMode::Off
-  };
+  InputState state{.typing_command = false,
+                   .pos = 0,
+                   .visible_line = {0, 0},
+                   .history_pos = 0,
+                   .hint_pos = 0,
+                   .last_press = std::chrono::high_resolution_clock::now(),
+                   .last_input_value = Input::UNEXPECTED,
+                   .long_press_mode = LongPressMode::Off};
 
   bool is_special_key(int c)
   {
@@ -57,7 +54,7 @@ namespace czh::input
     {
       while (it_str < state.line.cend() && std::isspace(*it_str))
         ++it_str;
-      while (!std::isspace(*it_str) && it_str < state.line.cend())
+      while (it_str < state.line.cend() && !std::isspace(*it_str))
         temp += *it_str++;
       tokens.emplace_back(temp);
       temp.clear();
@@ -67,15 +64,14 @@ namespace czh::input
     {
       // command hint
       auto its = utils::find_all_if(cmd::commands.cbegin(), cmd::commands.cend(),
-                                    [&tokens](auto&& f) { return utils::begin_with(f.cmd, tokens[0]); });
-      for (auto& it : its)
+                                    [&tokens](auto &&f) { return utils::begin_with(f.cmd, tokens[0]); });
+      for (auto &it : its)
         state.hint.emplace_back(it->cmd.substr(tokens[0].size()), true);
       return;
     }
     else if (tokens.size() > 1)
     {
-      auto it = std::ranges::find_if(cmd::commands,
-                                     [a = tokens[0]](auto&& f) { return utils::begin_with(f.cmd, a); });
+      auto it = std::ranges::find_if(cmd::commands, [a = tokens[0]](auto &&f) { return utils::begin_with(f.cmd, a); });
       if (it != cmd::commands.end())
       {
         if (tokens.size() - 2 < it->hint_providers.size())
@@ -88,7 +84,7 @@ namespace czh::input
           else
           {
             auto h = it->hint_providers[tokens.size() - 2](tokens[tokens.size() - 2]);
-            for (auto& r : h)
+            for (auto &r : h)
             {
               if (r.applicable && utils::begin_with(r.hint, tokens.back()))
                 state.hint.emplace_back(r.hint.substr(tokens.back().size()), true);
@@ -101,30 +97,32 @@ namespace czh::input
 
     // history hint
     auto its = utils::find_all_if(state.history.cbegin(), state.history.cend(),
-                                  [](auto&& f) { return utils::begin_with(f, state.line); });
-    for (auto& it : its)
+                                  [](auto &&f) { return utils::begin_with(f, state.line); });
+    for (auto &it : its)
       state.hint.emplace_back(it->substr(state.line.size()), true);
   }
 
   void pos_left()
   {
-    auto& [beg, end] = state.visible_line;
-    if (state.pos > beg) return;
+    auto &[beg, end] = state.visible_line;
+    if (state.pos > beg)
+      return;
     beg = state.pos;
     end = (std::min)(beg + draw::state.width - 2, state.line.size());
   }
 
   void pos_right()
   {
-    auto& [beg, end] = state.visible_line;
-    if (state.pos <= end) return;
+    auto &[beg, end] = state.visible_line;
+    if (state.pos <= end)
+      return;
     end = state.pos;
     beg = end > draw::state.width - 2 ? end - draw::state.width + 2 : 0;
   }
 
   void get_visible_cmd_line()
   {
-    auto& [beg, end] = state.visible_line;
+    auto &[beg, end] = state.visible_line;
     if (state.line.size() <= draw::state.width - 2)
     {
       beg = 0;
@@ -132,19 +130,16 @@ namespace czh::input
     }
     else
     {
-      if (state.pos<draw::state.width - 2)
-          {
-            beg = 0;
-            end = draw::state.width - 2;
-
-          }
+      if (state.pos < draw::state.width - 2)
+      {
+        beg = 0;
+        end = draw::state.width - 2;
+      }
       else
-          {
-            end = state.pos;
-            beg = end - draw::state.width + 2;
-
-          }
-
+      {
+        end = state.pos;
+        beg = end - draw::state.width + 2;
+      }
     }
   }
 
@@ -156,7 +151,7 @@ namespace czh::input
     term::output("\x1b[K");
     // the current cmd_line
 
-    auto color = [](const std::string& s) { return utils::color_256_fg(s, 208); };
+    auto color = [](const std::string &s) { return utils::color_256_fg(s, 208); };
 
     // Too long, disable hint
     if (state.hint.empty() || state.line.size() + state.hint[state.hint_pos].hint.size() > draw::state.width - 2)
@@ -173,7 +168,7 @@ namespace czh::input
     }
     else // still too long, split
     {
-      const auto& [beg, end] = state.visible_line;
+      const auto &[beg, end] = state.visible_line;
       if (beg == 0 && end == 0)
         get_visible_cmd_line();
       if (beg == 0)
@@ -205,7 +200,8 @@ namespace czh::input
 
   void next_hint()
   {
-    if (state.hint.empty()) return;
+    if (state.hint.empty())
+      return;
     ++state.hint_pos;
     if (state.hint_pos >= state.hint.size())
       state.hint_pos = 0;
@@ -214,7 +210,8 @@ namespace czh::input
 
   void move_to_beginning()
   {
-    if (state.pos == 0) return;
+    if (state.pos == 0)
+      return;
     state.pos = 0;
     pos_left();
     edit_refresh_line();
@@ -222,7 +219,8 @@ namespace czh::input
 
   void move_to_end(bool apply_hint = true)
   {
-    if (state.pos == state.line.size() && state.hint.empty()) return;
+    if (state.pos == state.line.size() && state.hint.empty())
+      return;
     bool refresh = false;
 
     if (apply_hint && !state.hint.empty() && state.hint[state.hint_pos].applicable)
@@ -235,7 +233,8 @@ namespace czh::input
 
     state.pos = state.line.size();
     pos_right();
-    if (refresh) edit_refresh_line();
+    if (refresh)
+      edit_refresh_line();
   }
 
   void move_to_word_beginning()
@@ -261,18 +260,16 @@ namespace czh::input
   void move_to_word_end()
   {
     // curr is not space
-    while (state.pos<state.line.size() && state.line[state.pos] == ' ')
-      {
-        ++state.pos;
-
-      }
-      // next is space or end
-    while (state.pos<state.line.size() && state.line[state.pos] != ' ')
-        {
-          ++state.pos;
-
-        }
-        pos_right();
+    while (state.pos < state.line.size() && state.line[state.pos] == ' ')
+    {
+      ++state.pos;
+    }
+    // next is space or end
+    while (state.pos < state.line.size() && state.line[state.pos] != ' ')
+    {
+      ++state.pos;
+    }
+    pos_right();
     edit_refresh_line();
   }
 
@@ -286,15 +283,16 @@ namespace czh::input
 
   void move_right()
   {
-    if (state.pos<state.line.size())
-        ++state.pos;
-      pos_right();
+    if (state.pos < state.line.size())
+      ++state.pos;
+    pos_right();
     edit_refresh_line();
   }
 
   void edit_delete()
   {
-    if (state.pos >= state.line.size()) return;
+    if (state.pos >= state.line.size())
+      return;
     state.line.erase(state.pos, 1);
     get_hint();
     edit_refresh_line();
@@ -302,7 +300,8 @@ namespace czh::input
 
   void edit_backspace()
   {
-    if (state.pos == 0) return;
+    if (state.pos == 0)
+      return;
     state.line.erase(state.pos - 1, 1);
     --state.pos;
     get_hint();
@@ -311,7 +310,8 @@ namespace czh::input
 
   void edit_delete_next_word()
   {
-    if (state.pos == state.line.size() - 1) return;
+    if (state.pos == state.line.size() - 1)
+      return;
     auto i = state.pos;
     // skip space
     while (i < state.line.size() && state.line[i] == ' ')
@@ -373,25 +373,13 @@ namespace czh::input
     move_to_end(false);
   }
 
-  void edit_up()
-  {
-    edit_history_helper(true);
-  }
+  void edit_up() { edit_history_helper(true); }
 
-  void edit_down()
-  {
-    edit_history_helper(false);
-  }
+  void edit_down() { edit_history_helper(false); }
 
-  void edit_left()
-  {
-    move_left();
-  }
+  void edit_left() { move_left(); }
 
-  void edit_right()
-  {
-    move_right();
-  }
+  void edit_right() { move_right(); }
 
   Input get_raw_input()
   {
@@ -457,7 +445,6 @@ namespace czh::input
               }
               edit_refresh_line(false);
               return Input::COMMAND;
-
               break;
             case SpecialKey::CTRL_N:
               edit_down();
@@ -477,7 +464,8 @@ namespace czh::input
               break;
             case SpecialKey::CTRL_W:
             {
-              if (state.pos == 0) break;
+              if (state.pos == 0)
+                break;
               auto origin_pos = state.pos;
               while (state.pos > 0 && state.line[state.pos - 1] == ' ')
               {
@@ -493,7 +481,7 @@ namespace czh::input
             case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-            // esc ?
+              // esc ?
               if (seq[0] != '[' && seq[0] != 'O')
               {
                 switch (seq[0])
@@ -507,6 +495,7 @@ namespace czh::input
                   case 'f':
                     move_to_word_end();
                     break;
+                  default:break;
                 }
               }
               else
@@ -566,6 +555,7 @@ namespace czh::input
                       case '4':
                         move_to_end();
                         break;
+                      default:break;
                     }
                   }
                 }
@@ -592,6 +582,7 @@ namespace czh::input
                     case 'F':
                       move_to_end();
                       break;
+                    default:break;
                   }
                 }
               }
@@ -635,6 +626,7 @@ namespace czh::input
             case 83:
               edit_delete();
               break;
+            default:break;
           }
         }
         else
@@ -679,7 +671,7 @@ namespace czh::input
             case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-            // esc ?
+              // esc ?
               if (seq[0] != '[' && seq[0] != 'O')
               {
                 continue;
@@ -719,6 +711,7 @@ namespace czh::input
                       case 'D':
                         return Input::LEFT;
                         break;
+                      default:break;
                     }
                   }
                 }
@@ -739,6 +732,7 @@ namespace czh::input
                     case 'D':
                       return Input::LEFT;
                       break;
+                    default:break;
                   }
                 }
               }
@@ -765,6 +759,7 @@ namespace czh::input
             case 77:
               return Input::RIGHT;
               break;
+            default:break;
           }
         }
         else
@@ -820,8 +815,8 @@ namespace czh::input
     {
       while (!term::keyboard.kbhit())
       {
-        auto d = std::chrono::duration_cast<std::chrono::microseconds>(
-          std::chrono::high_resolution_clock::now() - state.last_press);
+        auto d = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() -
+                                                                       state.last_press);
         if (d.count() > cfg::config.long_pressing_threshold)
         {
           state.long_press_mode = LongPressMode::Off;
@@ -858,4 +853,4 @@ namespace czh::input
     state.last_press = now;
     return ret;
   }
-}
+} // namespace czh::input

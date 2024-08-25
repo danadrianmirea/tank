@@ -12,37 +12,34 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/game.h"
-#include "tank/game_map.h"
-#include "tank/tank.h"
-#include "tank/bullet.h"
-#include "tank/broadcast.h"
-#include "tank/utils/utils.h"
-#include "tank/utils/debug.h"
-#include <optional>
-#include <mutex>
-#include <vector>
 #include <list>
+#include <mutex>
+#include <optional>
 #include <ranges>
 #include <tank/drawing.h>
 #include <tank/online.h>
+#include <vector>
+#include "tank/broadcast.h"
+#include "tank/bullet.h"
+#include "tank/game_map.h"
+#include "tank/tank.h"
+#include "tank/utils/debug.h"
+#include "tank/utils/utils.h"
 
 namespace czh::g
 {
-  GameState state
-  {
-    .running = true,
-    .suspend = false,
-    .mode = Mode::NATIVE,
-    .page = Page::MAIN,
-    .users = {{0, g::UserData{.user_id = 0, .active = true}}},
-    .id = 0,
-    .next_id = 0,
-    .next_bullet_id = 0
-  };
+  GameState state{.running = true,
+                  .suspend = false,
+                  .mode = Mode::NATIVE,
+                  .page = Page::MAIN,
+                  .users = {{0, g::UserData{.user_id = 0, .active = true}}},
+                  .id = 0,
+                  .next_id = 0,
+                  .next_bullet_id = 0};
   std::mutex mainloop_mtx;
   std::mutex tank_reacting_mtx;
 
-  std::optional<map::Pos> get_available_pos(const map::Zone& zone)
+  std::optional<map::Pos> get_available_pos(const map::Zone &zone)
   {
     std::vector<map::Pos> p;
     for (int i = zone.x_min; i < zone.x_max; ++i)
@@ -62,14 +59,15 @@ namespace czh::g
     return p[utils::randnum<size_t>(0, p.size())];
   }
 
-  tank::Tank* id_at(size_t id)
+  tank::Tank *id_at(size_t id)
   {
     auto it = state.tanks.find(id);
-    if (it == state.tanks.end()) return nullptr;
+    if (it == state.tanks.end())
+      return nullptr;
     return it->second;
   }
 
-  std::size_t add_tank(const map::Pos& pos, size_t from_id)
+  std::size_t add_tank(const map::Pos &pos, size_t from_id)
   {
     if (map::map.has(map::Status::WALL, pos) || map::map.has(map::Status::TANK, pos))
     {
@@ -77,15 +75,13 @@ namespace czh::g
       return 0;
     }
 
-    state.tanks.insert({
-      state.next_id, new tank::NormalTank(state.next_id, "Tank " + std::to_string(state.next_id),
-                                       10000, pos, 1, 100, 60)
-    });
+    state.tanks.insert({state.next_id, new tank::NormalTank(state.next_id, "Tank " + std::to_string(state.next_id),
+                                                            10000, pos, 1, 100, 60)});
     ++state.next_id;
     return state.next_id - 1;
   }
 
-  std::size_t add_tank(const map::Zone& zone, size_t from_id)
+  std::size_t add_tank(const map::Zone &zone, size_t from_id)
   {
     auto pos = get_available_pos(zone);
     if (!pos.has_value())
@@ -96,7 +92,7 @@ namespace czh::g
     return add_tank(*pos, from_id);
   }
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos, size_t from_id)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos, size_t from_id)
   {
     if (map::map.has(map::Status::WALL, pos) || map::map.has(map::Status::TANK, pos))
     {
@@ -104,18 +100,15 @@ namespace czh::g
       return 0;
     }
 
-    state.tanks.insert({
-      state.next_id,
-      new tank::AutoTank(state.next_id, "AutoTank " + std::to_string(state.next_id),
-                         static_cast<int>(11 - lvl) * 150,
-                         pos, static_cast<int>(10 - lvl), 1,
-                         static_cast<int>(11 - lvl) * 15, 60)
-    });
+    state.tanks.insert(
+        {state.next_id, new tank::AutoTank(state.next_id, "AutoTank " + std::to_string(state.next_id),
+                                           static_cast<int>(11 - lvl) * 150, pos, static_cast<int>(10 - lvl), 1,
+                                           static_cast<int>(11 - lvl) * 15, 60)});
     ++state.next_id;
     return state.next_id - 1;
   }
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Zone& zone, size_t from_id)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Zone &zone, size_t from_id)
   {
     auto pos = get_available_pos(zone);
     if (!pos.has_value())
@@ -126,7 +119,7 @@ namespace czh::g
     return add_auto_tank(lvl, *pos, from_id);
   }
 
-  void revive(std::size_t id, const map::Zone& zone, size_t from_id)
+  void revive(std::size_t id, const map::Zone &zone, size_t from_id)
   {
     auto pos = get_available_pos(zone);
     if (!pos.has_value())
@@ -170,7 +163,7 @@ namespace czh::g
       }
     }
 
-    for (auto& tank : state.tanks | std::views::values)
+    for (auto &tank : state.tanks | std::views::values)
     {
       if (!tank->is_alive() && !tank->has_cleared())
         tank->clear();
@@ -179,7 +172,8 @@ namespace czh::g
 
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
-    if (!state.running) return;
+    if (!state.running)
+      return;
 
     std::lock_guard l(tank_reacting_mtx);
     if (id_at(id)->is_alive())
@@ -190,34 +184,35 @@ namespace czh::g
 
   void mainloop()
   {
-    if (!state.running) return;
+    if (!state.running)
+      return;
 
     std::lock_guard ml(mainloop_mtx);
     std::lock_guard dl(draw::drawing_mtx);
 
-    //auto tank
-    for (auto& tank : state.tanks | std::views::values)
+    // auto tank
+    for (auto &tank : state.tanks | std::views::values)
     {
       dbg::tank_assert(tank != nullptr);
       if (tank->is_alive())
       {
         if (tank->is_auto)
-          dynamic_cast<tank::AutoTank*>(tank)->react();
+          dynamic_cast<tank::AutoTank *>(tank)->react();
         else
         {
-          auto n = dynamic_cast<tank::NormalTank*>(tank);
+          auto n = dynamic_cast<tank::NormalTank *>(tank);
           if (n->is_auto_driving())
             state.events.emplace_back(tank->get_id(), n->get_auto_event());
         }
       }
     }
 
-    //normal tank
+    // normal tank
     {
       std::lock_guard tl(tank_reacting_mtx);
-      for (auto& r : state.events)
+      for (auto &r : state.events)
       {
-        auto tank = dynamic_cast<tank::NormalTank*>(id_at(r.first));
+        auto tank = dynamic_cast<tank::NormalTank *>(id_at(r.first));
         switch (r.second)
         {
           case tank::NormalTankEvent::UP:
@@ -259,24 +254,24 @@ namespace czh::g
     }
 
     // bullet move
-    for (auto& b : state.bullets)
+    for (auto &b : state.bullets)
     {
       if (b->is_alive())
         b->react();
     }
 
-    for (auto& b : state.bullets)
+    for (auto &b : state.bullets)
     {
-      if (!b->is_alive()) continue;
+      if (!b->is_alive())
+        continue;
 
-      if ((map::map.count(map::Status::BULLET, b->pos) > 1)
-          || map::map.has(map::Status::TANK, b->pos))
+      if ((map::map.count(map::Status::BULLET, b->pos) > 1) || map::map.has(map::Status::TANK, b->pos))
       {
         int lethality = 0;
         int attacker = -1;
         auto bullets_instance = map::map.at(b->pos).get_bullets();
         dbg::tank_assert(!bullets_instance.empty());
-        for (auto& bi : bullets_instance)
+        for (auto &bi : bullets_instance)
         {
           if (bi->is_alive())
             lethality += bi->get_lethality();
@@ -292,7 +287,7 @@ namespace czh::g
             dbg::tank_assert(tank_attacker != nullptr);
             if (tank->is_auto)
             {
-              auto t = dynamic_cast<tank::AutoTank*>(tank);
+              auto t = dynamic_cast<tank::AutoTank *>(tank);
               if (attacker != t->get_id())
               {
                 int ret = t->set_target(attacker);
@@ -324,4 +319,4 @@ namespace czh::g
       online::svr.stop();
     }
   }
-}
+} // namespace czh::g

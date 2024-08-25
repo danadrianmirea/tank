@@ -15,14 +15,7 @@
 #define TANK_MESSAGE_H
 #pragma once
 
-#include "utils/utils.h"
-
 #include <string>
-#include <chrono>
-#include <ranges>
-#include <format>
-#include <map>
-#include <numeric>
 
 namespace czh::msg
 {
@@ -32,7 +25,7 @@ namespace czh::msg
     std::string content;
     int priority;
     bool read;
-    long time;
+    long long time;
   };
 
   inline bool operator<(const Message& m1, const Message& m2)

@@ -16,14 +16,15 @@
 #pragma once
 
 #include "game_map.h"
-#include "tank.h"
 #include "message.h"
+#include "tank.h"
 
-#include <utility>
+#include <atomic>
+#include <chrono>
+#include <mutex>
 #include <optional>
 #include <set>
-#include <chrono>
-#include <atomic>
+#include <utility>
 
 namespace czh::g
 {
@@ -42,7 +43,9 @@ namespace czh::g
 
   enum class Mode
   {
-    NATIVE, SERVER, CLIENT,
+    NATIVE,
+    SERVER,
+    CLIENT,
   };
 
   enum class Page
@@ -64,28 +67,28 @@ namespace czh::g
     size_t id;
     size_t next_id;
     size_t next_bullet_id;
-    std::map<std::size_t, tank::Tank*> tanks;
-    std::list<bullet::Bullet*> bullets;
-    std::vector<std::pair<std::size_t, tank::NormalTankEvent> > events;
+    std::map<std::size_t, tank::Tank *> tanks;
+    std::list<bullet::Bullet *> bullets;
+    std::vector<std::pair<std::size_t, tank::NormalTankEvent>> events;
   };
 
   extern GameState state;
   extern std::mutex mainloop_mtx;
   extern std::mutex tank_reacting_mtx;
 
-  std::optional<map::Pos> get_available_pos(const map::Zone& zone);
+  std::optional<map::Pos> get_available_pos(const map::Zone &zone);
 
-  tank::Tank* id_at(size_t id);
+  tank::Tank *id_at(size_t id);
 
-  void revive(std::size_t id, const map::Zone& zone, size_t from_id);
+  void revive(std::size_t id, const map::Zone &zone, size_t from_id);
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Zone& zone, size_t from_id);
+  std::size_t add_auto_tank(std::size_t lvl, const map::Zone &zone, size_t from_id);
 
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos, size_t from_id);
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos, size_t from_id);
 
-  std::size_t add_tank(const map::Pos& pos, size_t from_id);
+  std::size_t add_tank(const map::Pos &pos, size_t from_id);
 
-  std::size_t add_tank(const map::Zone& zone, size_t from_id);
+  std::size_t add_tank(const map::Zone &zone, size_t from_id);
 
   void clear_death();
 
@@ -94,5 +97,5 @@ namespace czh::g
   void tank_react(std::size_t id, tank::NormalTankEvent event);
 
   void quit();
-}
+} // namespace czh::g
 #endif

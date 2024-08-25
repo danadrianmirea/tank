@@ -14,19 +14,18 @@
 #include "tank/term.h"
 
 #include <cstdio>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <sys/select.h>
-#include <termios.h>
-
 #include <iostream>
 
 namespace czh::term
 {
   KeyBoard keyboard;
 
-  KeyBoard::KeyBoard()
-    : keyboard_mode(0), initial_settings(), new_settings(), peek_character(0)
+  KeyBoard::KeyBoard() :
+      keyboard_mode(0), initial_settings(), new_settings()
+#ifdef CZH_TANK_KEYBOARD_MODE_1
+      ,
+      peek_character(0)
+#endif
   {
     init();
   }
@@ -38,8 +37,8 @@ namespace czh::term
     HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
     GetConsoleMode(handle, &initial_settings);
     auto curr_mode = initial_settings;
-    curr_mode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT
-                   | ENABLE_INSERT_MODE | ENABLE_QUICK_EDIT_MODE);
+    curr_mode &=
+        ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_INSERT_MODE | ENABLE_QUICK_EDIT_MODE);
     SetConsoleMode(handle, curr_mode);
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     keyboard_mode = 1;
@@ -57,10 +56,7 @@ namespace czh::term
     flush();
   }
 
-  KeyBoard::~KeyBoard()
-  {
-    deinit();
-  }
+  KeyBoard::~KeyBoard() { deinit(); }
 
   void KeyBoard::deinit() const
   {
@@ -81,7 +77,8 @@ namespace czh::term
     return _kbhit();
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     unsigned char ch;
-    if (peek_character != -1) return 1;
+    if (peek_character != -1)
+      return 1;
     new_settings.c_cc[VMIN] = 0;
     tcsetattr(0, TCSANOW, &new_settings);
     int nread = static_cast<int>(read(0, &ch, 1));
@@ -108,20 +105,17 @@ namespace czh::term
       ch = static_cast<char>(peek_character);
       peek_character = -1;
     }
-    else { read(0, &ch, 1); }
+    else
+    {
+      read(0, &ch, 1);
+    }
     return ch;
 #endif
   }
 
-  void move_cursor(const TermPos& pos)
-  {
-    output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f");
-  }
+  void move_cursor(const TermPos &pos) { output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f"); }
 
-  void flush()
-  {
-    std::cout << std::flush;
-  }
+  void flush() { std::cout << std::flush; }
 
   std::size_t get_height()
   {
@@ -151,18 +145,9 @@ namespace czh::term
 #endif
   }
 
-  void clear()
-  {
-    output("\x1b[2J");
-  }
+  void clear() { output("\x1b[2J"); }
 
-  void hide_cursor()
-  {
-    output("\x1b[?25l");
-  }
+  void hide_cursor() { output("\x1b[?25l"); }
 
-  void show_cursor()
-  {
-    output("\x1b[?25h");
-  }
-}
+  void show_cursor() { output("\x1b[?25h"); }
+} // namespace czh::term

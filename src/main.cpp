@@ -11,24 +11,22 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+#include "tank/broadcast.h"
 #include "tank/command.h"
-#include "tank/game.h"
-#include "tank/drawing.h"
-#include "tank/input.h"
 #include "tank/config.h"
+#include "tank/drawing.h"
+#include "tank/game.h"
+#include "tank/input.h"
 #include "tank/online.h"
 #include "tank/tank.h"
-#include "tank/term.h"
-#include "tank/broadcast.h"
 #include "tank/utils/utils.h"
 
 #include <csignal>
 
 #include <chrono>
-#include <thread>
 #include <string>
+#include <thread>
 #include <vector>
-#include <ranges>
 
 using namespace czh;
 
@@ -62,26 +60,26 @@ int main()
   signal(SIGCONT, sighandler);
 #endif
   std::thread game_thread(
-    []
-    {
-      while (true)
+      []
       {
-        std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-        if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
-          g::mainloop();
-
-        auto ret = draw::update_snapshot();
-        if (ret == 0) draw::draw();
-
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
-        if (cfg::config.tick > cost)
+        while (true)
         {
-          std::this_thread::sleep_for(cfg::config.tick - cost);
+          std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
+          if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
+            g::mainloop();
+
+          auto ret = draw::update_snapshot();
+          if (ret == 0)
+            draw::draw();
+
+          std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+          std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+          if (cfg::config.tick > cost)
+          {
+            std::this_thread::sleep_for(cfg::config.tick - cost);
+          }
         }
-      }
-    }
-  );
+      });
   g::add_tank(map::Pos{0, 0}, 0);
   while (true)
   {
@@ -145,7 +143,8 @@ int main()
           }
         }
         break;
-        default: break;
+        default:
+          break;
       }
     }
     else if (g::state.page == g::Page::HELP)
@@ -166,7 +165,8 @@ int main()
             draw::state.inited = false;
           }
           break;
-        default: break;
+        default:
+          break;
       }
     }
     else if (g::state.page == g::Page::STATUS)
@@ -191,7 +191,8 @@ int main()
           g::state.page = g::Page::GAME;
           draw::state.inited = false;
           break;
-        default: break;
+        default:
+          break;
       }
     }
     else if (g::state.page == g::Page::NOTIFICATION)
@@ -216,7 +217,8 @@ int main()
           g::state.page = g::Page::GAME;
           draw::state.inited = false;
           break;
-        default: break;
+        default:
+          break;
       }
     }
     switch (i)
@@ -265,9 +267,10 @@ int main()
         else if (g::state.mode == g::Mode::SERVER)
         {
           online::svr.stop();
-          for (auto& id : g::state.users | std::views::keys)
+          for (auto &id : g::state.users | std::views::keys)
           {
-            if (id == 0) continue;
+            if (id == 0)
+              continue;
             g::state.tanks[id]->kill();
             g::state.tanks[id]->clear();
             delete g::state.tanks[id];

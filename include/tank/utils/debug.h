@@ -18,7 +18,7 @@
 #include <string>
 #include <stdexcept>
 #include <format>
-#include <print>
+#include <iostream>
 #include <source_location>
 
 namespace czh::dbg
@@ -31,7 +31,7 @@ namespace czh::dbg
     {
       auto what = std::format("{}:{}:{}: In function '{}': Assertion Failed:\n{}",
         sl.file_name(), sl.line(), sl.column(), sl.function_name(), detail_);
-      std::println(stderr, "{}", what);
+      std::cerr << what << std::endl;
       throw std::runtime_error(what);
     }
   }
