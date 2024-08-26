@@ -16,6 +16,7 @@
 namespace czh::bc
 {
   std::mutex send_msg_mtx;
+
   std::optional<msg::Message> read_message(size_t id)
   {
     int max_priority = (std::numeric_limits<int>::min)();
@@ -42,5 +43,4 @@ namespace czh::bc
     }
     return std::nullopt;
   }
-
 }

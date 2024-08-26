@@ -16,6 +16,7 @@
 #include "tank/archive.h"
 #include "tank/command.h"
 #include "tank/broadcast.h"
+#include "tank/online.h"
 #include "tank/utils/utils.h"
 #include "tank/utils/serialization.h"
 #include <string>
@@ -25,7 +26,7 @@
 #include <set>
 #include <iterator>
 #include <ranges>
-#include <tank/online.h>
+#include <regex>
 
 namespace czh::cmd
 {
@@ -335,11 +336,11 @@ namespace czh::cmd
   {
     if (cmd.empty()) return {.good = false, .error = {"No command input."}};
     auto it = cmd.cbegin();
-    auto skip_space = [&it, &cmd] { while (it < cmd.cend() && std::isspace(*it)) ++it; };
+    auto skip_space = [&it, &cmd] { while (it < cmd.cend() && *it == ' ') ++it; };
     skip_space();
 
     std::string name;
-    while (it < cmd.cend() && !std::isspace(*it))
+    while (it < cmd.cend() && *it != ' ')
       name += *it++;
 
     std::vector<details::Arg> args;

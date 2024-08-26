@@ -12,11 +12,11 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/game_map.h"
+#include "tank/utils/debug.h"
+#include "tank/utils/utils.h"
 #include <ranges>
 #include <vector>
 #include "tank/game.h"
-#include "tank/utils/debug.h"
-#include "tank/utils/utils.h"
 
 namespace czh::map
 {

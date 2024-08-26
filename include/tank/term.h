@@ -69,7 +69,9 @@ namespace czh::term
     std::size_t y;
 
   public:
-    TermPos(std::size_t x_, std::size_t y_) : x(x_), y(y_) {}
+    TermPos(std::size_t x_, std::size_t y_) : x(x_), y(y_)
+    {
+    }
 
     [[nodiscard]] std::size_t get_x() const { return x; }
 
@@ -80,18 +82,18 @@ namespace czh::term
 
   bool kbhit();
 
-  void move_cursor(const TermPos &pos);
+  void move_cursor(const TermPos& pos);
 
   void flush();
 
   template<typename... Args>
-  void output(Args &&...args)
+  void output(Args&&... args)
   {
     (std::cout << ... << args);
   }
 
   template<typename... Args>
-  void mvoutput(const TermPos &pos, Args &&...args)
+  void mvoutput(const TermPos& pos, Args&&... args)
   {
     move_cursor(pos);
     output(std::forward<Args>(args)...);

@@ -61,26 +61,26 @@ int main()
   signal(SIGCONT, sighandler);
 #endif
   std::thread game_thread(
-      []
+    []
+    {
+      while (true)
       {
-        while (true)
+        std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
+        if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
+          g::mainloop();
+
+        auto ret = draw::update_snapshot();
+        if (ret == 0)
+          draw::draw();
+
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+        if (cfg::config.tick > cost)
         {
-          std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
-          if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
-            g::mainloop();
-
-          auto ret = draw::update_snapshot();
-          if (ret == 0)
-            draw::draw();
-
-          std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-          std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
-          if (cfg::config.tick > cost)
-          {
-            std::this_thread::sleep_for(cfg::config.tick - cost);
-          }
+          std::this_thread::sleep_for(cfg::config.tick - cost);
         }
-      });
+      }
+    });
   g::add_tank(map::Pos{0, 0}, 0);
   while (true)
   {
@@ -208,7 +208,7 @@ int main()
           }
           break;
         case input::Input::DOWN:
-          if (draw::state.notification_pos < g::state.users[g::state.id].messages.size() - 1)
+          if (draw::state.notification_pos < draw::state.notification_text.size() - 1)
           {
             draw::state.notification_pos++;
             draw::state.inited = false;
@@ -233,7 +233,7 @@ int main()
         input::state.hint_pos = 0;
         input::state.history.emplace_back("");
         input::state.history_pos = input::state.history.size() - 1;
-        input::edit_refresh_line();
+        input::edit_refresh_line_lock();
         if (auto c = input::get_input(); c == input::Input::COMMAND)
         {
           cmd::run_command(g::state.id, input::state.line);
@@ -268,7 +268,7 @@ int main()
         else if (g::state.mode == g::Mode::SERVER)
         {
           online::svr.stop();
-          for (auto &id : g::state.users | std::views::keys)
+          for (auto& id : g::state.users | std::views::keys)
           {
             if (id == 0)
               continue;

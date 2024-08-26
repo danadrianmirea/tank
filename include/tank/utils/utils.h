@@ -15,11 +15,14 @@
 #define TANK_UTILS_H
 #pragma once
 
+#include "wide_char_width.h"
+#include "debug.h"
+
 #include <string_view>
 #include <string>
 #include <random>
 #include <type_traits>
-#include <regex>
+#include <ranges>
 
 namespace czh::utils
 {
@@ -49,60 +52,6 @@ namespace czh::utils
         { value.end() };
         requires ItRange<decltype(value.begin()), decltype(value.end())>;
       };
-
-  template<Container T>
-  T split(std::string_view str, char delim)
-  {
-    T ret;
-    size_t first = 0;
-    while (first < str.size())
-    {
-      const auto second = str.find_first_of(delim, first);
-      if (first != second)
-      {
-        ret.insert(ret.end(), str.substr(first, second - first));
-      }
-      if (second == std::string_view::npos)
-      {
-        break;
-      }
-      first = second + 1;
-    }
-    return ret;
-  }
-
-  template<Container T>
-  T split(std::string_view str, std::string_view delims)
-  {
-    T ret;
-    size_t first = 0;
-    while (first < str.size())
-    {
-      const auto second = str.find_first_of(delims, first);
-      if (first != second)
-      {
-        ret.insert(ret.end(), str.substr(first, second - first));
-      }
-      if (second == std::string_view::npos)
-      {
-        break;
-      }
-      first = second + 1;
-    }
-    return ret;
-  }
-
-  template<typename It, typename UnaryPred>
-  constexpr std::vector<It> find_all_if(It first, It last, UnaryPred p)
-  {
-    std::vector<It> ret;
-    for (; first != last; ++first)
-    {
-      if (p(*first))
-        ret.insert(ret.end(), first);
-    }
-    return ret;
-  }
 
   template<typename T>
     requires (!std::is_same_v<std::string, std::decay_t<T> >) &&
@@ -170,21 +119,78 @@ namespace czh::utils
     return true;
   }
 
-  inline size_t display_width(const std::string::const_iterator& beg, const std::string::const_iterator& end)
+  template<typename... R>
+  size_t display_width(R&&... r)
   {
-    size_t ret = 0;
-    std::string n;
-    for (auto it = beg; it < end; ++it)
-    {
-      if (*it == '\x1b')
-      {
-        while (it < end && *it != 'm') ++it;
-        continue;
-      }
-      ++ret;
-      n += *it;
-    }
-    return ret;
+    static constexpr auto utf8_chunk = [](auto c1, auto c2) { return (0b11000000 & c2) == 0b10000000; };
+    std::string_view sv{std::forward<R>(r)...};
+    if (sv.empty()) return 0;
+    auto a = sv
+             | std::views::chunk_by([](char c1, char c2) { return c2 != '\x1b'; })
+             | std::views::transform(
+               [](auto&& s) -> size_t
+               {
+                 std::string_view sv;
+                 if (*s.begin() == '\x1b')
+                 {
+                   sv = std::string_view{
+                     s
+                     | std::views::drop_while([](char c) { return c != 'm'; })
+                     | std::views::drop(1)
+                   };
+                 }
+                 else
+                   sv = std::string_view{s};
+
+                 if (sv.empty()) return 0;
+
+                 auto&& rng = sv
+                              | std::views::chunk_by(utf8_chunk)
+                              | std::views::transform([](auto&& c) -> size_t
+                              {
+                                std::string_view sv{c};
+                                uint32_t wc{0};
+                                if (sv.size() == 1)
+                                  wc = sv[0];
+                                else if (sv.size() == 2)
+                                {
+                                  wc = sv[0] & 0b00011111;
+                                  wc << 6;
+                                  wc |= sv[1] & 0b00111111;
+                                }
+                                else if (sv.size() == 3)
+                                {
+                                  wc = sv[0] & 0b00001111;
+                                  wc <<= 6;
+                                  wc |= sv[1] & 0b00111111;
+                                  wc <<= 6;
+                                  wc |= sv[2] & 0b00111111;
+                                }
+                                else if (sv.size() == 4)
+                                {
+                                  wc = sv[0] & 0b00001111;
+                                  wc <<= 6;
+                                  wc |= sv[1] & 0b00111111;
+                                  wc <<= 6;
+                                  wc |= sv[2] & 0b00111111;
+                                  wc <<= 6;
+                                  wc |= sv[3] & 0b00111111;
+                                }
+                                else
+                                  dbg::tank_assert(false, "Invalid UTF-8 string.");
+                                int w = wide_char_width(wc);
+                                if (w < 0)
+                                  dbg::tank_assert(false, "Invalid UTF-8 string.");
+                                return static_cast<size_t>(w);
+                              });
+                 auto ret = std::ranges::fold_left_first(rng, std::plus{});
+                 dbg::tank_assert(ret.has_value(), "Invalid UTF-8 string.");
+                 return ret.value();
+               });
+
+    auto ret = std::ranges::fold_left_first(a, std::plus{});
+    dbg::tank_assert(ret.has_value(), "Invalid UTF-8 string.");
+    return static_cast<size_t>(ret.value());
   }
 
   inline size_t display_width(const std::string& str)
@@ -193,9 +199,9 @@ namespace czh::utils
   }
 
   template<typename... Args>
-  size_t display_width(const std::string& str, Args&&... args)
+  size_t display_width_all(Args&&... args)
   {
-    return display_width(str) + display_width(std::forward<Args>(args)...);
+    return (... + display_width(std::forward<Args>(args)));
   }
 
   inline std::string setw(size_t w, std::string s)

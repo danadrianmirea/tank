@@ -20,6 +20,7 @@
 #include <chrono>
 #include <string>
 #include <functional>
+#include <mutex>
 
 namespace czh::input
 {
@@ -107,11 +108,14 @@ namespace czh::input
     Input last_input_value;
     LongPressMode long_press_mode;
   };
+
   extern InputState state;
 
-  void edit_refresh_line(bool with_hint = true);
+  void edit_refresh_line_lock(bool with_hint = true);
 
   void edit_refresh_line_nolock(bool with_hint = true);
+
+  void update_cursor_nolock();
 
   Input get_input();
 }

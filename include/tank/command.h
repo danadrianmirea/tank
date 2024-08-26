@@ -48,6 +48,7 @@ namespace czh::cmd
 
   extern const std::set<std::string> remote_cmds;
   extern const std::vector<cmd::CommandInfo> commands;
+
   namespace details
   {
     using ArgTList = utils::TypeList<std::string, int, bool>;

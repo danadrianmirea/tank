@@ -24,13 +24,13 @@
 namespace czh::dbg
 {
   inline void tank_assert(bool b,
-    const std::string& detail_ = "",
-    const std::source_location& sl = std::source_location::current())
+                          const std::string& detail_ = "",
+                          const std::source_location& sl = std::source_location::current())
   {
     if (!b)
     {
       auto what = std::format("{}:{}:{}: In function '{}': Assertion Failed:\n{}",
-        sl.file_name(), sl.line(), sl.column(), sl.function_name(), detail_);
+                              sl.file_name(), sl.line(), sl.column(), sl.function_name(), detail_);
       std::cerr << what << std::endl;
       throw std::runtime_error(what);
     }

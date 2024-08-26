@@ -30,24 +30,26 @@
 
 namespace czh::draw
 {
-  DrawingState state{.inited = false,
-                     .focus = 0,
-                     .status_pos = 0,
-                     .help_pos = 0,
-                     .notification_pos = 0,
-                     .visible_zone = {-128, 128, -128, 128},
-                     .height = term::get_height(),
-                     .width = term::get_width(),
-                     .fps = 60,
-                     .last_drawing = std::chrono::steady_clock::now(),
-                     .last_message_displayed = std::chrono::steady_clock::now(),
-                     .style =
-                         Style{.background = 15, .wall = 9, .tanks = {10, 3, 4, 5, 6, 11, 12, 13, 14, 57, 100, 214}}};
+  DrawingState state{
+    .inited = false,
+    .focus = 0,
+    .status_pos = 0,
+    .help_pos = 0,
+    .notification_pos = 0,
+    .visible_zone = {-128, 128, -128, 128},
+    .height = term::get_height(),
+    .width = term::get_width(),
+    .fps = 60,
+    .last_drawing = std::chrono::steady_clock::now(),
+    .last_message_displayed = std::chrono::steady_clock::now(),
+    .style =
+    Style{.background = 15, .wall = 9, .tanks = {10, 3, 4, 5, 6, 11, 12, 13, 14, 57, 100, 214}}
+  };
   std::mutex drawing_mtx;
   const PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
   const PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
 
-  const PointView &generate(const map::Pos &i, size_t seed)
+  const PointView& generate(const map::Pos& i, size_t seed)
   {
     if (map::generate(i, seed).has(map::Status::WALL))
     {
@@ -56,7 +58,7 @@ namespace czh::draw
     return empty_point_view;
   }
 
-  const PointView &generate(int x, int y, size_t seed)
+  const PointView& generate(int x, int y, size_t seed)
   {
     if (map::generate(x, y, seed).has(map::Status::WALL))
     {
@@ -67,9 +69,9 @@ namespace czh::draw
 
   bool PointView::is_empty() const { return status == map::Status::END; }
 
-  const PointView &MapView::at(int x, int y) const { return at(map::Pos(x, y)); }
+  const PointView& MapView::at(int x, int y) const { return at(map::Pos(x, y)); }
 
-  const PointView &MapView::at(const map::Pos &i) const
+  const PointView& MapView::at(const map::Pos& i) const
   {
     if (view.contains(i))
     {
@@ -80,18 +82,21 @@ namespace czh::draw
 
   bool MapView::is_empty() const { return view.empty(); }
 
-  PointView extract_point(const map::Pos &p)
+  PointView extract_point(const map::Pos& p)
   {
     if (map::map.has(map::Status::TANK, p))
     {
       return {
-          .status = map::Status::TANK, .tank_id = static_cast<int>(map::map.at(p).get_tank()->get_id()), .text = ""};
+        .status = map::Status::TANK, .tank_id = static_cast<int>(map::map.at(p).get_tank()->get_id()), .text = ""
+      };
     }
     else if (map::map.has(map::Status::BULLET, p))
     {
-      return {.status = map::Status::BULLET,
-              .tank_id = static_cast<int>(map::map.at(p).get_bullets()[0]->get_tank()),
-              .text = map::map.at(p).get_bullets()[0]->get_text()};
+      return {
+        .status = map::Status::BULLET,
+        .tank_id = static_cast<int>(map::map.at(p).get_bullets()[0]->get_tank()),
+        .text = map::map.at(p).get_bullets()[0]->get_text()
+      };
     }
     else if (map::map.has(map::Status::WALL, p))
     {
@@ -104,7 +109,7 @@ namespace czh::draw
     return {};
   }
 
-  MapView extract_map(const map::Zone &zone)
+  MapView extract_map(const map::Zone& zone)
   {
     MapView ret;
     ret.seed = map::map.seed;
@@ -124,20 +129,22 @@ namespace czh::draw
   std::map<size_t, TankView> extract_tanks()
   {
     std::map<size_t, TankView> view;
-    for (auto &r : g::state.tanks | std::views::values)
+    for (auto& r : g::state.tanks | std::views::values)
     {
-      auto tv = TankView{.id = r->get_id(),
-                         .name = r->name,
-                         .max_hp = r->max_hp,
-                         .hp = r->hp,
-                         .is_auto = r->is_auto,
-                         .is_alive = r->is_alive(),
-                         .pos = r->pos,
-                         .direction = r->direction,
-                         .bullet_lethality = r->bullet_lethality};
+      auto tv = TankView{
+        .id = r->get_id(),
+        .name = r->name,
+        .max_hp = r->max_hp,
+        .hp = r->hp,
+        .is_auto = r->is_auto,
+        .is_alive = r->is_alive(),
+        .pos = r->pos,
+        .direction = r->direction,
+        .bullet_lethality = r->bullet_lethality
+      };
       if (r->is_auto)
       {
-        auto at = dynamic_cast<tank::AutoTank *>(r);
+        auto at = dynamic_cast<tank::AutoTank*>(r);
         if (at->is_target_good())
         {
           tv.gap = at->gap;
@@ -161,14 +168,14 @@ namespace czh::draw
   std::map<size_t, UserView> extract_userinfo()
   {
     std::map<size_t, UserView> view;
-    for (auto &r : g::state.users)
+    for (auto& r : g::state.users)
     {
       view[r.first] = UserView{.user_id = r.second.user_id, .ip = r.second.ip, .active = r.second.active};
     }
     return view;
   }
 
-  std::string colorify_text(size_t id, const std::string &str)
+  std::string colorify_text(size_t id, const std::string& str)
   {
     int color;
     if (id == 0)
@@ -182,7 +189,7 @@ namespace czh::draw
     return utils::color_256_fg(str, color);
   }
 
-  std::string colorify_tank(size_t id, const std::string &str)
+  std::string colorify_tank(size_t id, const std::string& str)
   {
     int color;
     if (id == 0)
@@ -196,10 +203,12 @@ namespace czh::draw
     return utils::color_256_bg(str, color);
   }
 
-  void update_point(const map::Pos &pos)
+  void update_point(const map::Pos& pos)
   {
-    term::move_cursor({static_cast<size_t>((pos.x - state.visible_zone.x_min) * 2),
-                       static_cast<size_t>(state.visible_zone.y_max - pos.y - 1)});
+    term::move_cursor({
+      static_cast<size_t>((pos.x - state.visible_zone.x_min) * 2),
+      static_cast<size_t>(state.visible_zone.y_max - pos.y - 1)
+    });
     switch (state.snapshot.map.at(pos).status)
     {
       case map::Status::TANK:
@@ -207,8 +216,8 @@ namespace czh::draw
         break;
       case map::Status::BULLET:
         term::output(
-            utils::color_256_bg(colorify_text(state.snapshot.map.at(pos).tank_id, state.snapshot.map.at(pos).text),
-                                state.style.background));
+          utils::color_256_bg(colorify_text(state.snapshot.map.at(pos).tank_id, state.snapshot.map.at(pos).text),
+                              state.style.background));
         break;
       case map::Status::WALL:
         term::output(utils::color_256_bg("  ", state.style.wall));
@@ -219,7 +228,7 @@ namespace czh::draw
     }
   }
 
-  bool check_zone_size(const map::Zone &z)
+  bool check_zone_size(const map::Zone& z)
   {
     size_t h = z.y_max - z.y_min;
     size_t w = z.x_max - z.x_min;
@@ -260,7 +269,7 @@ namespace czh::draw
     return ret;
   }
 
-  std::set<map::Pos> get_screen_changes(const map::Direction &move)
+  std::set<map::Pos> get_screen_changes(const map::Direction& move)
   {
     std::set<map::Pos> ret;
     // When the visible zone moves, every point in the screen doesn't move, but its corresponding pos changes.
@@ -282,7 +291,7 @@ namespace czh::draw
             }
           }
         }
-        for (auto &p : state.snapshot.changes)
+        for (auto& p : state.snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -302,7 +311,7 @@ namespace czh::draw
             }
           }
         }
-        for (auto &p : state.snapshot.changes)
+        for (auto& p : state.snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -322,7 +331,7 @@ namespace czh::draw
             }
           }
         }
-        for (auto &p : state.snapshot.changes)
+        for (auto& p : state.snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -342,7 +351,7 @@ namespace czh::draw
             }
           }
         }
-        for (auto &p : state.snapshot.changes)
+        for (auto& p : state.snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -351,7 +360,7 @@ namespace czh::draw
         }
         break;
       case map::Direction::END:
-        for (auto &p : state.snapshot.changes)
+        for (auto& p : state.snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -364,7 +373,7 @@ namespace czh::draw
     return ret;
   }
 
-  void next_zone(const map::Direction &direction)
+  void next_zone(const map::Direction& direction)
   {
     switch (direction)
     {
@@ -459,38 +468,50 @@ namespace czh::draw
     return {beg, end, std::format("Line {}/{} {}%", content_pos + 1, content_size, percent)};
   }
 
-  void flexible_output(const std::string &left, const std::string &right)
+  void flexible_output(const std::string& left, const std::string& right)
   {
-    int a = static_cast<int>(state.width) - static_cast<int>(utils::display_width(left, right));
+    int a = static_cast<int>(state.width) - static_cast<int>(utils::display_width_all(left, right));
     if (a > 0)
     {
       term::output(left, std::string(a, ' '), right);
     }
     else
     {
-      int b = static_cast<int>(state.width) - static_cast<int>(utils::display_width(left));
-      if (b > 0)
+      if (auto w = utils::display_width(left); w < state.width)
       {
-        term::output(left, std::string(b, ' '));
+        term::output(left, std::string(state.width - w, ' '));
       }
       else
       {
-        term::output(left.substr(0, static_cast<int>(left.size()) + b));
+        size_t sz = 0;
+        size_t n = left.size() - (w - state.width);
+        while (n > 0 && utils::display_width(left.begin(), left.begin() + n) > state.width - 1)
+        {
+          --n;
+          while ((left[n] & 0b11000000) == 0b10000000)
+            --n;
+        }
+        term::output(left.substr(0, n), utils::color_256_fg(">", 9));
       }
     }
   }
 
-  std::vector<std::string> fit_into_screen(const std::string &raw, std::string indent = "")
+  std::vector<std::string> fit_into_screen(std::string_view raw, std::string indent = "")
   {
     std::vector<std::string> ret;
+    static constexpr auto pad = [](std::string& line, size_t width)
+    {
+      if (state.width > width)
+        line.insert(line.end(), state.width - width, ' ');
+    };
     if (auto width = utils::display_width(raw); width > state.width)
     {
       // Get indent if not provided
       if (indent.empty())
       {
-        for (auto &i : raw)
+        for (auto& i : raw)
         {
-          if (std::isspace(i))
+          if (i == ' ')
             indent += i;
           else
             break;
@@ -498,35 +519,60 @@ namespace czh::draw
       }
 
       std::string line;
-      for (size_t i = 0; i < raw.size(); ++i)
+      for (size_t i = 0; i < raw.size();)
       {
-        if (line.size() == indent.size() && std::isspace(raw[i]))
-          continue;
+        while (line.size() == indent.size() && raw[i] == ' ')
+          ++i;
+
         line += raw[i];
-        if (utils::display_width(line) == state.width)
+        for (size_t j = i + 1; (raw[j] & 0b11000000) == 0b10000000 && j < raw.size(); ++j)
+          line += raw[j];
+
+        if (utils::display_width(line) >= state.width)
         {
-          if (i + 1 < raw.size() && !std::isspace(raw[i + 1]) && !std::isspace(raw[i]))
+          if (i > 0 && utils::display_width(line) > state.width)
+          {
+            int j = i - 1;
+            while (j > 0 && (raw[j] & 0b11000000) == 0b10000000)
+              --j;
+            line.erase(line.size() - (i - j), i - j);
+            i = j;
+          }
+
+          if (i + 1 < raw.size() && raw[i + 1] != ' ' && raw[i] != ' ')
           {
             int j = static_cast<int>(i);
-            while (j >= 0 && !std::isspace(raw[j]))
+            while (j > 0 && raw[j] != ' ')
+            {
               --j;
-            if (i - j < 6)
+              while (j > 0 && (raw[j] & 0b11000000) == 0b10000000)
+                --j;
+            }
+
+            if (utils::display_width(raw.begin() + j, raw.begin() + i) < 5)
             {
               line.erase(line.size() - (i - j), i - j);
-              line.insert(line.end(), i - j, ' ');
+              pad(line, utils::display_width(line));
               ret.emplace_back(line);
               i = j;
             }
             else
+            {
+              pad(line, utils::display_width(line));
               ret.emplace_back(line);
+            }
             line = indent;
           }
           else
           {
+            pad(line, utils::display_width(line));
             ret.emplace_back(line);
             line = indent;
           }
         }
+        do
+          ++i;
+        while (i < raw.size() && (raw[i] & 0b11000000) == 0b10000000);
       }
       if (!line.empty())
       {
@@ -535,8 +581,8 @@ namespace czh::draw
     }
     else
     {
-      std::string temp = raw;
-      temp.insert(temp.end(), state.width - width, ' ');
+      std::string temp{raw};
+      pad(temp, width);
       ret.emplace_back(temp);
     }
     return ret;
@@ -679,18 +725,18 @@ Command:
   disconnect
     - Disconnect from the Server.
 )";
-    static auto raw_lines = utils::split<std::vector<std::string_view>>(help, "\n");
+    static auto raw_lines = help | std::views::split('\n');
     state.help_text.clear();
-    for (auto &r : raw_lines)
+    for (const auto& r : raw_lines)
     {
       if (r.size() >= state.width)
       {
-        auto ret = fit_into_screen(std::string{r});
+        auto ret = fit_into_screen(std::string_view{r});
         state.help_text.insert(state.help_text.end(), std::make_move_iterator(ret.begin()),
                                std::make_move_iterator(ret.end()));
       }
       else
-        state.help_text.emplace_back(r);
+        state.help_text.emplace_back(std::string_view{r});
     }
   }
 
@@ -699,7 +745,7 @@ Command:
     if (g::state.suspend)
       return;
     term::hide_cursor();
-    std::lock_guard ml(g::mainloop_mtx);
+    // std::lock_guard ml(g::mainloop_mtx);
     std::lock_guard dl(drawing_mtx);
 
     if (state.height != term::get_height() || state.width != term::get_width())
@@ -762,7 +808,7 @@ Command:
         else
         {
           auto changes = get_screen_changes(move);
-          for (auto &p : changes)
+          for (auto& p : changes)
           {
             if (state.visible_zone.contains(p))
             {
@@ -782,7 +828,7 @@ Command:
 
         // status bar
         term::move_cursor(term::TermPos(0, state.height - 2));
-        auto &focus_tank = state.snapshot.tanks[state.focus];
+        auto& focus_tank = state.snapshot.tanks[state.focus];
         std::string left = colorify_text(focus_tank.id, focus_tank.name) + " HP: " + std::to_string(focus_tank.hp) +
                            "/" + std::to_string(focus_tank.max_hp) + " Pos: (" + std::to_string(focus_tank.pos.x) +
                            ", " + std::to_string(focus_tank.pos.y) + ")";
@@ -807,7 +853,7 @@ Command:
         if (user_id_size < 2)
           user_id_size = 2;
 
-        auto ipsz_r = state.snapshot.userinfo | std::views::transform([](auto &&p) { return p.second.ip.size(); });
+        auto ipsz_r = state.snapshot.userinfo | std::views::transform([](auto&& p) { return p.second.ip.size(); });
         size_t ip_size = (std::ranges::max)(ipsz_r);
 
         if (ip_size == 0)
@@ -823,7 +869,7 @@ Command:
         size_t i = 0;
         for (auto it = state.snapshot.userinfo.cbegin(); it != state.snapshot.userinfo.cend(); ++i, ++it)
         {
-          const auto &user = it->second;
+          const auto& user = it->second;
           term::move_cursor({0, cursor_y++});
 
           term::output(std::left, std::setw(static_cast<int>(user_id_size)), user.user_id, "  ");
@@ -851,24 +897,24 @@ Command:
 
         if (tank_id_size < 2)
           tank_id_size = 2;
-        auto namesz_r = state.snapshot.tanks | std::views::transform([](auto &&a) { return a.second.name.size(); });
+        auto namesz_r = state.snapshot.tanks | std::views::transform([](auto&& a) { return a.second.name.size(); });
         size_t name_size = (std::ranges::max)(namesz_r);
 
-        auto get_pos_size = [](const map::Pos &p)
+        auto get_pos_size = [](const map::Pos& p)
         {
           // (x, y)
           return std::to_string(p.x).size() + std::to_string(p.y).size() + 4;
         };
 
         auto possz_r = state.snapshot.tanks |
-                       std::views::transform([&get_pos_size](auto &&a) { return get_pos_size(a.second.pos); });
+                       std::views::transform([&get_pos_size](auto&& a) { return get_pos_size(a.second.pos); });
         size_t pos_size = (std::ranges::max)(possz_r);
 
-        auto hpsz_r = state.snapshot.tanks | std::views::transform([](auto &&t) { return t.second.hp; });
+        auto hpsz_r = state.snapshot.tanks | std::views::transform([](auto&& t) { return t.second.hp; });
         size_t hp_size = utils::numlen((std::ranges::max)(hpsz_r));
 
 
-        auto atksz_r = state.snapshot.tanks | std::views::transform([](auto &&t) { return t.second.bullet_lethality; });
+        auto atksz_r = state.snapshot.tanks | std::views::transform([](auto&& t) { return t.second.bullet_lethality; });
         size_t atk_size = utils::numlen((std::ranges::max)(atksz_r));
 
         if (atk_size < 3)
@@ -898,7 +944,7 @@ Command:
         {
           if (j >= beg && j < end)
           {
-            const auto &tank = it->second;
+            const auto& tank = it->second;
             term::move_cursor({0, cursor_y++});
 
             std::string pos_str = '(' + std::to_string(tank.pos.x) + ',' +
@@ -948,11 +994,9 @@ Command:
           size_t y = 2;
           if (state.width > 24)
           {
-            auto splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
-            for (auto &r : splitted)
-            {
-              term::mvoutput({x, y++}, r);
-            }
+            auto&& splitted = tank | std::views::split('\n');
+            for (auto&& r : splitted)
+              term::mvoutput({x, y++}, std::string_view{r});
           }
           else
           {
@@ -993,101 +1037,125 @@ Command:
       break;
       case g::Page::NOTIFICATION:
       {
+        auto& msgs = g::state.users[g::state.id].messages;
+        const auto add_notification_text = [](const msg::Message& msg) -> size_t
+        {
+          auto time = std::chrono::system_clock::to_time_t(
+            std::chrono::system_clock::time_point(std::chrono::seconds(msg.time)));
+          char buf[16];
+#ifdef _WIN32
+          tm now{};
+          localtime_s(&now, &time);
+          std::strftime(buf, sizeof(buf), "[%H:%M:%S]", &now);
+#else
+          std::strftime(buf, sizeof(buf), "[%H:%M:%S]", std::localtime(&time));
+#endif
+          std::string time_str(buf);
+
+          std::string raw;
+
+          raw += time_str;
+          if (msg.from != -1)
+            raw += std::to_string(msg.from) + ": ";
+
+          size_t indent_size = raw.size();
+
+          raw += msg.content;
+
+          auto msg_text = fit_into_screen(raw, std::string(indent_size, ' '));
+          auto ret = msg_text.size();
+          state.notification_text.insert(state.notification_text.begin(),
+                                         std::make_move_iterator(msg_text.begin()),
+                                         std::make_move_iterator(msg_text.end()));
+          return ret;
+        };
+
+        static constexpr auto output_notification = []
+        {
+          size_t cursor_y = 0;
+          term::mvoutput({state.width / 2 - 6, cursor_y++}, "Notification");
+
+          if (state.notification_pos >= state.notification_text.size())
+            state.notification_pos = 0;
+
+          auto [beg, end, lineno] =
+              text_display_helper(state.height - 3, state.notification_pos, state.notification_text.size());
+
+          state.notification_pos = beg;
+
+          for (size_t i = beg; i < end; ++i)
+            term::mvoutput({0, cursor_y++}, "\x1b[2K", state.notification_text[i]);
+
+          term::mvoutput({(state.width - lineno.size()) / 2, state.height - 2}, "\x1b[2K", lineno);
+        };
+
         if (!state.inited)
         {
           term::clear();
+          state.notification_text.clear();
+          for (const auto& msg : msgs)
+            add_notification_text(msg);
+          output_notification();
+          for (auto& r : msgs)
+          {
+            if (!r.read)
+              r.read = true;
+          }
           state.inited = true;
         }
-        size_t cursor_y = 0;
-        term::mvoutput({state.width / 2 - 6, cursor_y++}, "Notification");
-
-        const auto &msgs = g::state.users[g::state.id].messages;
-        if (state.notification_pos >= msgs.size())
-          state.notification_pos = 0;
-
-        size_t content_size = 0;
-        for (auto &r : msgs)
-          content_size += r.content.size() / state.width + 1;
-        auto [beg, end, lineno] = text_display_helper(state.height - 3, state.notification_pos, content_size);
-
-        state.notification_pos = beg;
-
-        size_t line_pos = 0;
-        for (size_t i = 0; i < msgs.size(); ++i)
+        else
         {
-          const auto &msg = msgs[msgs.size() - i - 1];
-          if (line_pos >= beg && line_pos < end)
+          bool updated = false;
+          for (auto& r : msgs)
           {
-            auto time = std::chrono::system_clock::to_time_t(
-                std::chrono::system_clock::time_point(std::chrono::seconds(msg.time)));
-            char buf[16];
-#ifdef _WIN32
-            tm now{};
-            localtime_s(&now, &time);
-            std::strftime(buf, sizeof(buf), "[%H:%M:%S]", &now);
-#else
-            std::strftime(buf, sizeof(buf), "[%H:%M:%S]", std::localtime(&time));
-#endif
-            std::string time_str(buf);
-
-            std::string raw;
-            if (!msg.read)
-              raw += utils::color_256_fg("NEW> ", 9);
-            raw += time_str;
-            if (msg.from != -1)
-              raw += std::to_string(msg.from) + ": ";
-
-            size_t indent_size = raw.size();
-
-            raw += msg.content;
-
-            auto msg_text = fit_into_screen(raw, std::string(indent_size, ' '));
-
-            for (auto &r : msg_text)
-              term::mvoutput({0, cursor_y++}, r);
+            if (!r.read)
+            {
+              r.read = true;
+              state.notification_pos += add_notification_text(r);
+              updated = true;
+            }
           }
-          line_pos += msg.content.size() / state.width + 1;
+          if (updated)
+            output_notification();
         }
-
-        term::mvoutput({(state.width - lineno.size()) / 2, state.height - 2}, "\x1b[2K", lineno);
-        state.inited = true;
       }
       break;
     }
 
     static const auto show_info = []
     {
-      std::string left = "Tank Version 0.2.1 (Compile: " + std::string(__DATE__) + ")";
-      std::string right;
+      std::string right = "Tank Version 0.2.1 (Compile: " + std::string(__DATE__) + ")";
+      std::string left;
       if (g::state.mode == g::Mode::NATIVE)
-        right += "Native Mode";
+        left += "Native Mode";
       else if (g::state.mode == g::Mode::SERVER)
       {
-        right += "Server Mode | Port: " + std::to_string(online::svr.get_port()) + " | ";
+        left += "Server Mode | Port: " + std::to_string(online::svr.get_port()) + " | ";
         size_t active_users =
-            std::ranges::count_if(g::state.users | std::views::values, [](auto &&u) { return u.active; });
+            std::ranges::count_if(g::state.users | std::views::values, [](auto&& u) { return u.active; });
 
-        right += "User: " + std::to_string(active_users) + "/" + std::to_string(g::state.users.size());
+        left += "User: " + std::to_string(active_users) + "/" + std::to_string(g::state.users.size());
       }
       else if (g::state.mode == g::Mode::CLIENT)
       {
-        right += "Client Mode | ";
-        right += "ID: " + std::to_string(g::state.id) + " | Connected to " + online::cli.get_host() + ":" +
-                 std::to_string(online::cli.get_port()) + " | ";
+        left += "Client Mode | ";
+        left += "ID: " + std::to_string(g::state.id) + " | Connected to " + online::cli.get_host() + ":" +
+            std::to_string(online::cli.get_port()) + " | ";
         if (online::state.delay < 50)
-          right += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 2);
+          left += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 2);
         else if (online::state.delay < 100)
-          right += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 11);
+          left += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 11);
         else
-          right += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 9);
+          left += utils::color_256_fg(std::to_string(online::state.delay) + " ms", 9);
       }
+      term::output("\x1b[2K");
       flexible_output(left, right);
     };
 
     // command
     if (input::state.typing_command)
     {
-      term::move_cursor({input::state.pos - input::state.visible_line.first + 1, state.height - 1});
+      input::update_cursor_nolock();
       term::show_cursor();
     }
     else if (!dbg::message.empty())
@@ -1110,14 +1178,21 @@ Command:
           if (msg.has_value())
           {
             std::string str = ((msg->from == bc::from_system) ? "" : std::to_string(msg->from) + ": ") + msg->content;
-            int a2 = static_cast<int>(state.width) - static_cast<int>(utils::display_width(str));
-            std::erase_if(str, [](auto &&ch) { return ch == '\n' || ch == '\r'; });
-            if (a2 > 0)
-              term::output(str, std::string(a2, ' '));
-            else
+            std::erase_if(str, [](auto&& ch) { return ch == '\n' || ch == '\r'; });
+            if (auto w = utils::display_width(str); w > state.width)
             {
-              term::output(str.substr(0, static_cast<int>(str.size()) + a2 - 1), utils::color_256_fg(">", 9));
+              size_t n = str.size() - (w - state.width + 1);
+              while (n > 0 && utils::display_width(str.begin(), str.begin() + n) > state.width - 1)
+              {
+                --n;
+                while ((str[n] & 0b11000000) == 0b10000000)
+                  --n;
+              }
+              term::output("\x1b[2K", str.substr(0, n), utils::color_256_fg(">", 9));
             }
+            else
+              term::output("\x1b[2K", str);
+
             state.last_message_displayed = now;
           }
           else
