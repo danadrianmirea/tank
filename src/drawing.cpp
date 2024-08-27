@@ -39,7 +39,7 @@ namespace czh::draw
                      .height = term::get_height(),
                      .width = term::get_width(),
                      .fps = 60,
-                     .last_drawing = std::chrono::steady_clock::now(),
+                     .last_drawing = std::chrono::high_resolution_clock::now(),
                      .last_message_displayed = std::chrono::steady_clock::now(),
                      .style =
                          Style{.background = 15, .wall = 9, .tanks = {10, 3, 4, 5, 6, 11, 12, 13, 14, 57, 100, 214}}};
