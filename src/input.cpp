@@ -199,18 +199,12 @@ namespace czh::input
     }
   }
 
-  void update_cursor_nolock()
+  void update_cursor()
   {
     const auto &[beg, end] = state.visible_line;
     auto wd = utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
                                    state.line.begin() + static_cast<std::string::difference_type>(state.pos));
     term::move_cursor({wd + 1, draw::state.height - 1});
-  }
-
-  void update_cursor_lock()
-  {
-    std::lock_guard l(draw::drawing_mtx);
-    update_cursor_nolock();
   }
 
   void cmdline_refresh(bool with_hint = true)
@@ -235,7 +229,7 @@ namespace czh::input
       // hint
       if (with_hint && !state.hint.empty())
         term::output("\x1b[2m", state.hint[state.hint_pos].hint, "\x1b[0m");
-      update_cursor_nolock();
+      update_cursor();
     }
     else // still too long, split
     {
@@ -249,7 +243,7 @@ namespace czh::input
       term::output(state.line.substr(beg, end - beg));
       if (end != state.line.size())
         term::output(color(">"));
-      update_cursor_nolock();
+      update_cursor();
     }
   }
 

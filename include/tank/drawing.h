@@ -105,7 +105,7 @@ namespace czh::draw
     std::size_t width;
     int fps;
     Snapshot snapshot;
-    std::chrono::steady_clock::time_point last_drawing;
+    std::chrono::high_resolution_clock::time_point last_drawing;
     std::chrono::steady_clock::time_point last_message_displayed;
     Style style;
   };

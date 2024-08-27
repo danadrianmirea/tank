@@ -115,7 +115,7 @@ namespace czh::input
 
   void edit_refresh_line_nolock(bool with_hint = true);
 
-  void update_cursor_nolock();
+  void update_cursor();
 
   Input get_input();
 }

@@ -11,6 +11,7 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+
 #include "tank/broadcast.h"
 #include "tank/command.h"
 #include "tank/config.h"
@@ -22,13 +23,20 @@
 #include "tank/term.h"
 #include "tank/utils/utils.h"
 
+#ifdef _WIN32
+#include <timeapi.h>
+#include <windef.h>
+#pragma comment(lib, "winmm")
+#endif
+
+#ifdef SIGCONT
 #include <csignal>
+#endif
 
 #include <chrono>
 #include <string>
 #include <thread>
 #include <vector>
-
 using namespace czh;
 
 void react(tank::NormalTankEvent event)
@@ -57,15 +65,23 @@ void sighandler(int)
 
 int main()
 {
+#ifdef _WIN32
+  TIMECAPS tc;
+  dbg::tank_assert(timeGetDevCaps(&tc, sizeof(TIMECAPS)) == TIMERR_NOERROR);
+  const UINT wTimerRes = (std::min)((std::max)(tc.wPeriodMin, static_cast<UINT>(1)), tc.wPeriodMax);
+  timeBeginPeriod(wTimerRes);
+#endif
+
 #ifdef SIGCONT
   signal(SIGCONT, sighandler);
 #endif
+
   std::thread game_thread(
     []
     {
       while (true)
       {
-        std::chrono::steady_clock::time_point beg = std::chrono::steady_clock::now();
+        std::chrono::high_resolution_clock::time_point beg = std::chrono::high_resolution_clock::now();
         if (g::state.mode == g::Mode::NATIVE || g::state.mode == g::Mode::SERVER)
           g::mainloop();
 
@@ -73,8 +89,8 @@ int main()
         if (ret == 0)
           draw::draw();
 
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        std::chrono::milliseconds cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+        std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+        auto cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
         if (cfg::config.tick > cost)
         {
           std::this_thread::sleep_for(cfg::config.tick - cost);
@@ -249,6 +265,9 @@ int main()
         std::lock_guard ml(g::mainloop_mtx);
         std::lock_guard dl(draw::drawing_mtx);
         g::quit();
+#ifdef _WIN32
+        timeEndPeriod(wTimerRes);
+#endif
         std::exit(0);
       }
       break;

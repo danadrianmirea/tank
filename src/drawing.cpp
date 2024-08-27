@@ -758,6 +758,8 @@ Command:
       case g::Page::GAME:
       {
         // check zone
+        if(!view_id_at(state.focus).has_value())
+          state.focus = g::state.id;
         if (!check_zone_size(state.visible_zone))
         {
           state.visible_zone = get_visible_zone(state.focus);
@@ -809,7 +811,7 @@ Command:
           }
         }
 
-        auto now = std::chrono::steady_clock::now();
+        auto now = std::chrono::high_resolution_clock::now();
         auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - state.last_drawing);
         if (delta_time.count() != 0)
         {
@@ -1146,7 +1148,7 @@ Command:
     // command
     if (input::state.typing_command)
     {
-      input::update_cursor_nolock();
+      input::update_cursor();
       term::show_cursor();
     }
     else if (!dbg::message.empty())
