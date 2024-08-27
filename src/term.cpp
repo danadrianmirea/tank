@@ -20,10 +20,11 @@ namespace czh::term
 {
   KeyBoard keyboard;
 
-  KeyBoard::KeyBoard() : keyboard_mode(0), initial_settings(), new_settings()
+  KeyBoard::KeyBoard() :
+      keyboard_mode(0), initial_settings(), new_settings()
 #ifdef CZH_TANK_KEYBOARD_MODE_1
-                         ,
-                         peek_character(0)
+      ,
+      peek_character(0)
 #endif
   {
     init();
@@ -112,7 +113,7 @@ namespace czh::term
 #endif
   }
 
-  void move_cursor(const TermPos& pos) { output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f"); }
+  void move_cursor(const TermPos &pos) { output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f"); }
 
   void flush() { std::cout << std::flush; }
 

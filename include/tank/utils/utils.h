@@ -155,7 +155,7 @@ namespace czh::utils
                                 else if (sv.size() == 2)
                                 {
                                   wc = sv[0] & 0b00011111;
-                                  wc << 6;
+                                  wc <<= 6;
                                   wc |= sv[1] & 0b00111111;
                                 }
                                 else if (sv.size() == 3)

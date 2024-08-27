@@ -11,23 +11,20 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/game.h"
 #include "tank/tank.h"
-#include "tank/game_map.h"
-#include "tank/bullet.h"
-#include "tank/utils/utils.h"
-#include "tank/utils/debug.h"
+#include <functional>
+#include <list>
 #include <map>
 #include <set>
-#include <list>
-#include <functional>
+#include "tank/bullet.h"
+#include "tank/game.h"
+#include "tank/game_map.h"
+#include "tank/utils/debug.h"
+#include "tank/utils/utils.h"
 
 namespace czh::tank
 {
-  void Tank::kill()
-  {
-    attacked(hp);
-  }
+  void Tank::kill() { attacked(hp); }
 
   int Tank::up()
   {
@@ -76,26 +73,16 @@ namespace czh::tank
   int Tank::fire() const
   {
     g::state.bullets.emplace_back(
-      new bullet::Bullet(g::state.next_bullet_id++, id, pos, direction,
-                         bullet_hp, bullet_lethality, bullet_range));
+        new bullet::Bullet(g::state.next_bullet_id++, id, pos, direction, bullet_hp, bullet_lethality, bullet_range));
     int ret = map::map.add_bullet(g::state.bullets.back(), pos);
     return ret;
   }
 
-  [[nodiscard]] std::size_t Tank::get_id() const
-  {
-    return id;
-  }
+  [[nodiscard]] std::size_t Tank::get_id() const { return id; }
 
-  [[nodiscard]] bool Tank::is_alive() const
-  {
-    return hp > 0;
-  }
+  [[nodiscard]] bool Tank::is_alive() const { return hp > 0; }
 
-  [[nodiscard]] bool Tank::has_cleared() const
-  {
-    return hascleared;
-  }
+  [[nodiscard]] bool Tank::has_cleared() const { return hascleared; }
 
   void Tank::clear()
   {
@@ -106,20 +93,23 @@ namespace czh::tank
   void Tank::attacked(int lethality_)
   {
     hp -= lethality_;
-    if (hp < 0) hp = 0;
-    if (hp > max_hp) hp = max_hp;
+    if (hp < 0)
+      hp = 0;
+    if (hp > max_hp)
+      hp = max_hp;
   }
 
-  void Tank::revive(const map::Pos& newpos)
+  void Tank::revive(const map::Pos &newpos)
   {
     hp = max_hp;
-    if (is_alive() && !hascleared) return;
+    if (is_alive() && !hascleared)
+      return;
     hascleared = false;
     pos = newpos;
     map::map.add_tank(this, pos);
   }
 
-  AutoTankEvent get_pos_direction(const map::Pos& from, const map::Pos& to)
+  AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to)
   {
     int x = from.x - to.x;
     int y = from.y - to.y;
@@ -138,25 +128,18 @@ namespace czh::tank
     return AutoTankEvent::UP;
   }
 
-  Node Node::make_next(const map::Pos& p) const
+  Node Node::make_next(const map::Pos &p) const
   {
     return Node{
-      .pos = p,
-      .dest = dest,
-      .last = pos,
-      .G = G + 10,
-      .F = G + 10 + static_cast<int>(get_distance(dest, p)) * 10
-    };
+        .pos = p, .dest = dest, .last = pos, .G = G + 10, .F = G + 10 + static_cast<int>(get_distance(dest, p)) * 10};
   }
 
   std::vector<Node> Node::get_neighbors() const
   {
-    if (G > map::MAP_DIVISION * 20) return {};
+    if (G > map::MAP_DIVISION * 20)
+      return {};
 
-    static auto check = [](const map::Pos& p)
-    {
-      return !map::map.has(map::Status::WALL, p);
-    };
+    static auto check = [](const map::Pos &p) { return !map::map.has(map::Status::WALL, p); };
     std::vector<Node> ret;
 
     map::Pos pos_up(pos.x, pos.y + 1);
@@ -183,14 +166,12 @@ namespace czh::tank
   }
 
 
-  bool operator<(const Node& n1, const Node& n2)
-  {
-    return n1.pos < n2.pos;
-  }
+  bool operator<(const Node &n1, const Node &n2) { return n1.pos < n2.pos; }
 
-  bool is_fire_spot(int range, const map::Pos& pos, const map::Pos& target_pos, bool curr_at_pos)
+  bool is_fire_spot(int range, const map::Pos &pos, const map::Pos &target_pos, bool curr_at_pos)
   {
-    if (pos == target_pos) return false;
+    if (pos == target_pos)
+      return false;
     if (map::map.has(map::Status::WALL, pos) || (!curr_at_pos && map::map.has(map::Status::TANK, pos)))
       return false;
     int x = target_pos.x - pos.x;
@@ -233,16 +214,13 @@ namespace czh::tank
   // }
 
   std::vector<map::Pos> find_route_between(map::Pos src, map::Pos dest,
-                                           const std::function<bool(const map::Pos&)>& pred)
+                                           const std::function<bool(const map::Pos &)> &pred)
   {
     std::vector<map::Pos> ret;
     std::multimap<int, Node> open;
     std::map<map::Pos, Node> close;
 
-    Node beg{
-      .pos = src, .dest = dest, .last = src,
-      .G = 0, .F = 0 + static_cast<int>(get_distance(dest, src)) * 10
-    };
+    Node beg{.pos = src, .dest = dest, .last = src, .G = 0, .F = 0 + static_cast<int>(get_distance(dest, src)) * 10};
 
     open.insert({beg.F, beg});
     while (!open.empty())
@@ -251,12 +229,11 @@ namespace czh::tank
       auto curr = close.insert({it->second.pos, it->second}).first->second;
       open.erase(it);
 
-      for (auto neighbors = curr.get_neighbors(); auto& node : neighbors)
+      for (auto neighbors = curr.get_neighbors(); auto &node : neighbors)
       {
         if (close.contains(node.pos))
           continue;
-        auto oit = std::ranges::find_if(open,
-                                        [&node](auto&& p) { return p.second.pos == node.pos; });
+        auto oit = std::ranges::find_if(open, [&node](auto &&p) { return p.second.pos == node.pos; });
         if (oit == open.end())
         {
           open.insert({node.F, node});
@@ -274,8 +251,7 @@ namespace czh::tank
           }
         }
       }
-      auto result = std::ranges::find_if(open,
-                                         [&pred](auto&& r) { return pred(r.second.pos); });
+      auto result = std::ranges::find_if(open, [&pred](auto &&r) { return pred(r.second.pos); });
       if (result != open.end())
       {
         auto np = result->second;
@@ -341,15 +317,16 @@ namespace czh::tank
       }
     }
 
-    if (fire_spots.empty()) return -1;
+    if (fire_spots.empty())
+      return -1;
 
-    auto dest = *std::ranges::min_element(fire_spots, std::less{},
-                                          [this](auto&& a) { return map::get_distance(a, pos); });
+    auto dest =
+        *std::ranges::min_element(fire_spots, std::less{}, [this](auto &&a) { return map::get_distance(a, pos); });
 
     route.clear();
     route_pos = 0;
 
-    auto add_route = [this](const std::vector<map::Pos>& r)
+    auto add_route = [this](const std::vector<map::Pos> &r)
     {
       for (int i = static_cast<int>(r.size() - 2); i >= 0; --i)
         route.emplace_back(get_pos_direction(r[i + 1], r[i]));
@@ -391,11 +368,10 @@ namespace czh::tank
           ++transit_dest.y;
       }
 
-      auto t1 = find_route_between(pos, transit_src,
-                                   [&transit_src](const map::Pos& p) { return p == transit_src; });
-      auto t2 = find_route_between(transit_dest, dest,
-                                   [&dest](const map::Pos& p) { return p == dest; });
-      if (t1.size() < 2 || t2.size() < 2) return -1;
+      auto t1 = find_route_between(pos, transit_src, [&transit_src](const map::Pos &p) { return p == transit_src; });
+      auto t2 = find_route_between(transit_dest, dest, [&dest](const map::Pos &p) { return p == dest; });
+      if (t1.size() < 2 || t2.size() < 2)
+        return -1;
       add_route(t1);
 
       if (transit_dest.x > transit_src.x)
@@ -425,9 +401,9 @@ namespace czh::tank
     }
     else
     {
-      auto r = find_route_between(pos, dest,
-                                  [&fire_spots](const map::Pos& p) { return fire_spots.contains(p); });
-      if (r.size() < 2) return -1;
+      auto r = find_route_between(pos, dest, [&fire_spots](const map::Pos &p) { return fire_spots.contains(p); });
+      if (r.size() < 2)
+        return -1;
       add_route(r);
       return 0;
     }
@@ -442,15 +418,9 @@ namespace czh::tank
     return ret;
   }
 
-  bool AutoTank::is_target_good() const
-  {
-    return has_good_target;
-  }
+  bool AutoTank::is_target_good() const { return has_good_target; }
 
-  size_t AutoTank::get_target_id() const
-  {
-    return target_id;
-  }
+  size_t AutoTank::get_target_id() const { return target_id; }
 
   void AutoTank::generate_random_route()
   {
@@ -523,12 +493,13 @@ namespace czh::tank
 
   void AutoTank::react()
   {
-    if (++gap_count < gap) return;
+    if (++gap_count < gap)
+      return;
     gap_count = 0;
 
     auto target_ptr = g::id_at(target_id);
-    bool good_fire_spot = target_ptr != nullptr && target_ptr->is_alive()
-                          && is_fire_spot(bullet_range, pos, target_ptr->pos, true);
+    bool good_fire_spot =
+        target_ptr != nullptr && target_ptr->is_alive() && is_fire_spot(bullet_range, pos, target_ptr->pos, true);
     has_good_target = good_fire_spot;
     // If arrived and not in good spot, then find route.
     if (route_pos >= route.size() && !good_fire_spot)
@@ -538,7 +509,8 @@ namespace czh::tank
       {
         for (int j = pos.y - 15; j < pos.y + 15; ++j)
         {
-          if (i == pos.x && j == pos.y) continue;
+          if (i == pos.x && j == pos.y)
+            continue;
 
           if (map::map.at(i, j).has(map::Status::TANK))
           {
@@ -593,7 +565,8 @@ namespace czh::tank
     }
     else
     {
-      if (route_pos >= route.size()) return;
+      if (route_pos >= route.size())
+        return;
       auto w = route[route_pos++];
       int ret = -1;
       switch (w)
@@ -620,4 +593,4 @@ namespace czh::tank
       }
     }
   }
-}
+} // namespace czh::tank

@@ -23,22 +23,20 @@
 #include <algorithm>
 #include <chrono>
 #include <mutex>
-#include <string>
 #include <ranges>
+#include <string>
 #include <vector>
 
 namespace czh::input
 {
-  InputState state{
-    .typing_command = false,
-    .pos = 0,
-    .visible_line = {0, 0},
-    .history_pos = 0,
-    .hint_pos = 0,
-    .last_press = std::chrono::high_resolution_clock::now(),
-    .last_input_value = Input::UNEXPECTED,
-    .long_press_mode = LongPressMode::Off
-  };
+  InputState state{.typing_command = false,
+                   .pos = 0,
+                   .visible_line = {0, 0},
+                   .history_pos = 0,
+                   .hint_pos = 0,
+                   .last_press = std::chrono::high_resolution_clock::now(),
+                   .last_input_value = Input::UNEXPECTED,
+                   .long_press_mode = LongPressMode::Off};
 
   bool is_special_key(int c)
   {
@@ -67,17 +65,16 @@ namespace czh::input
     if (tokens.size() == 1)
     {
       // command hint
-      auto&& h =
-          cmd::commands
-          | std::views::filter([&tokens](auto&& f) { return utils::begin_with(f.cmd, tokens[0]); })
-          | std::views::transform([&tokens](auto&& info) { return info.cmd.substr(tokens[0].size()); });
-      for (auto&& r : h)
+      auto &&h = cmd::commands |
+                 std::views::filter([&tokens](auto &&f) { return utils::begin_with(f.cmd, tokens[0]); }) |
+                 std::views::transform([&tokens](auto &&info) { return info.cmd.substr(tokens[0].size()); });
+      for (auto &&r : h)
         state.hint.emplace_back(r, true);
       return;
     }
     else if (tokens.size() > 1)
     {
-      auto it = std::ranges::find_if(cmd::commands, [a = tokens[0]](auto&& f) { return utils::begin_with(f.cmd, a); });
+      auto it = std::ranges::find_if(cmd::commands, [a = tokens[0]](auto &&f) { return utils::begin_with(f.cmd, a); });
       if (it != cmd::commands.end())
       {
         if (tokens.size() - 2 < it->hint_providers.size())
@@ -90,7 +87,7 @@ namespace czh::input
           else
           {
             auto h = it->hint_providers[tokens.size() - 2](tokens[tokens.size() - 2]);
-            for (auto& r : h)
+            for (auto &r : h)
             {
               if (r.applicable && utils::begin_with(r.hint, tokens.back()))
                 state.hint.emplace_back(r.hint.substr(tokens.back().size()), true);
@@ -102,31 +99,29 @@ namespace czh::input
     }
 
     // history hint
-    auto&& h =
-        state.history
-        | std::views::filter([](auto&& f) { return utils::begin_with(f, state.line); })
-        | std::views::transform([](auto&& s) { return s.substr(state.line.size()); });
-    for (auto&& r : h)
+    auto &&h = state.history | std::views::filter([](auto &&f) { return utils::begin_with(f, state.line); }) |
+               std::views::transform([](auto &&s) { return s.substr(state.line.size()); });
+    for (auto &&r : h)
       state.hint.emplace_back(r, true);
   }
 
   void normalize_end()
   {
-    auto& [beg, end] = state.visible_line;
+    auto &[beg, end] = state.visible_line;
     while (end < state.line.size() && (state.line[end] & 0b11000000) == 0b10000000)
       ++end;
-    while (end < state.line.size()
-           && utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
-                                   state.line.begin() + static_cast<std::string::difference_type>(end))
-           < draw::state.width - 2)
+    while (end < state.line.size() &&
+           utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
+                                state.line.begin() + static_cast<std::string::difference_type>(end)) <
+               draw::state.width - 2)
     {
       ++end;
       while ((state.line[end] & 0b11000000) == 0b10000000)
         ++end;
     }
     if (utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
-                             state.line.begin() + static_cast<std::string::difference_type>(end))
-        > draw::state.width - 2)
+                             state.line.begin() + static_cast<std::string::difference_type>(end)) >
+        draw::state.width - 2)
     {
       --end;
       while ((state.line[end] & 0b11000000) == 0b10000000)
@@ -136,21 +131,20 @@ namespace czh::input
 
   void normalize_beg()
   {
-    auto& [beg, end] = state.visible_line;
+    auto &[beg, end] = state.visible_line;
     while (beg > 0 && (state.line[beg] & 0b11000000) == 0b10000000)
       --beg;
-    while (beg > 0
-           && utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
-                                   state.line.begin() + static_cast<std::string::difference_type>(end))
-           < draw::state.width - 2)
+    while (beg > 0 && utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
+                                           state.line.begin() + static_cast<std::string::difference_type>(end)) <
+                          draw::state.width - 2)
     {
       --beg;
       while ((state.line[beg] & 0b11000000) == 0b10000000)
         --beg;
     }
     if (utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
-                             state.line.begin() + static_cast<std::string::difference_type>(end))
-        > draw::state.width - 2)
+                             state.line.begin() + static_cast<std::string::difference_type>(end)) >
+        draw::state.width - 2)
     {
       ++beg;
       while ((state.line[beg] & 0b11000000) == 0b10000000)
@@ -160,8 +154,9 @@ namespace czh::input
 
   void pos_left()
   {
-    auto& [beg, end] = state.visible_line;
-    if (state.pos > beg) return;
+    auto &[beg, end] = state.visible_line;
+    if (state.pos > beg)
+      return;
 
     beg = state.pos;
     end = (std::min)(beg + draw::state.width - 2, state.line.size());
@@ -170,7 +165,7 @@ namespace czh::input
 
   void pos_right()
   {
-    auto& [beg, end] = state.visible_line;
+    auto &[beg, end] = state.visible_line;
     if (state.pos <= end)
       return;
     end = state.pos;
@@ -180,7 +175,7 @@ namespace czh::input
 
   void get_visible_cmd_line()
   {
-    auto& [beg, end] = state.visible_line;
+    auto &[beg, end] = state.visible_line;
     if (utils::display_width(state.line) <= draw::state.width - 2)
     {
       beg = 0;
@@ -188,9 +183,8 @@ namespace czh::input
     }
     else
     {
-      if (utils::display_width(state.line.begin(),
-                               state.line.begin() + static_cast<std::string::difference_type>(state.pos))
-          < draw::state.width - 2)
+      if (utils::display_width(state.line.begin(), state.line.begin() + static_cast<std::string::difference_type>(
+                                                                            state.pos)) < draw::state.width - 2)
       {
         beg = 0;
         end = draw::state.width - 2;
@@ -199,7 +193,7 @@ namespace czh::input
       else
       {
         end = state.pos;
-        beg = end - draw::state.width + 2;
+        beg = end > draw::state.width - 2 ? end - draw::state.width + 2 : 0;
         normalize_beg();
       }
     }
@@ -207,7 +201,7 @@ namespace czh::input
 
   void update_cursor_nolock()
   {
-    const auto& [beg, end] = state.visible_line;
+    const auto &[beg, end] = state.visible_line;
     auto wd = utils::display_width(state.line.begin() + static_cast<std::string::difference_type>(beg),
                                    state.line.begin() + static_cast<std::string::difference_type>(state.pos));
     term::move_cursor({wd + 1, draw::state.height - 1});
@@ -227,11 +221,11 @@ namespace czh::input
     term::output("\x1b[K");
     // the current cmd_line
 
-    auto color = [](const std::string& s) { return utils::color_256_fg(s, 208); };
+    auto color = [](const std::string &s) { return utils::color_256_fg(s, 208); };
 
     // Too long, disable hint
-    if (state.hint.empty()
-        || utils::display_width_all(state.line, state.hint[state.hint_pos].hint) > draw::state.width - 2)
+    if (state.hint.empty() ||
+        utils::display_width_all(state.line, state.hint[state.hint_pos].hint) > draw::state.width - 2)
       with_hint = false;
 
     if (utils::display_width(state.line) <= draw::state.width - 1)
@@ -245,7 +239,7 @@ namespace czh::input
     }
     else // still too long, split
     {
-      const auto& [beg, end] = state.visible_line;
+      const auto &[beg, end] = state.visible_line;
       if (beg == 0 && end == 0)
         get_visible_cmd_line();
       if (beg == 0)
@@ -317,7 +311,8 @@ namespace czh::input
   void move_left()
   {
     std::lock_guard l(draw::drawing_mtx);
-    if (state.pos == 0) return;
+    if (state.pos == 0)
+      return;
     --state.pos;
     while (state.pos > 0 && (state.line[state.pos] & 0b11000000) == 0b10000000)
       --state.pos;
@@ -328,7 +323,8 @@ namespace czh::input
   void move_right()
   {
     std::lock_guard l(draw::drawing_mtx);
-    if (state.pos == state.line.size()) return;
+    if (state.pos == state.line.size())
+      return;
     ++state.pos;
     while (state.pos < state.line.size() && (state.line[state.pos] & 0b11000000) == 0b10000000)
       ++state.pos;
@@ -347,18 +343,22 @@ namespace czh::input
     auto offset = i - state.pos;
     state.line.erase(state.pos, offset);
 
-    auto& [beg, end] = state.visible_line;
-    end -= offset;
-    if (end == state.line.size())
+
+    if (auto &[beg, end] = state.visible_line; beg != 0 || end != 0)
     {
-      beg = end - draw::state.width + 2;
-      normalize_beg();
+      end -= offset;
+      if (end == state.line.size())
+      {
+        beg = end > draw::state.width - 2 ? end - draw::state.width + 2 : 0;
+        normalize_beg();
+      }
+      else
+      {
+        end = beg + draw::state.width - 2;
+        normalize_end();
+      }
     }
-    else
-    {
-      end = beg + draw::state.width - 2;
-      normalize_end();
-    }
+
     get_hint();
     edit_refresh_line_nolock();
   }
@@ -375,10 +375,13 @@ namespace czh::input
     state.line.erase(i, offset);
     state.pos -= offset;
 
-    auto& [beg, end] = state.visible_line;
-    end -= offset;
-    beg = end - draw::state.width + 2;
-    normalize_beg();
+
+    if (auto &[beg, end] = state.visible_line; beg != 0 || end != 0)
+    {
+      end -= offset;
+      beg = end > draw::state.width - 2 ? end - draw::state.width + 2 : 0;
+      normalize_beg();
+    }
 
     get_hint();
     edit_refresh_line_nolock();
@@ -544,7 +547,7 @@ namespace czh::input
             case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-            // esc ?
+              // esc ?
               if (seq[0] == '[' || seq[0] == 'O')
               {
                 std::cin.read(seq + 1, 1);
@@ -585,7 +588,8 @@ namespace czh::input
                       case '4':
                         move_to_end();
                         break;
-                      default: break;
+                      default:
+                        break;
                     }
                   }
                 }
@@ -612,7 +616,8 @@ namespace czh::input
                     case 'F':
                       move_to_end();
                       break;
-                    default: break;
+                    default:
+                      break;
                   }
                 }
               }
@@ -656,7 +661,8 @@ namespace czh::input
             case 83:
               edit_delete();
               break;
-            default: break;
+            default:
+              break;
           }
         }
         else
@@ -667,6 +673,9 @@ namespace czh::input
             std::lock_guard l(draw::drawing_mtx);
             state.line.insert(state.pos++, 1, ch);
             normalize_end();
+            pos_right();
+            get_hint();
+            edit_refresh_line_nolock();
           }
           else
           {
@@ -699,15 +708,14 @@ namespace czh::input
                                   codepoint_buf.begin(), codepoint_buf.end());
                 state.pos += codepoint_buf.size();
                 normalize_end();
+                pos_right();
                 codepoint_buf.clear();
                 expected_size = 0;
+                get_hint();
+                edit_refresh_line_nolock();
               }
             }
           }
-
-          pos_right();
-          get_hint();
-          edit_refresh_line_lock();
         }
       }
     }
@@ -744,7 +752,7 @@ namespace czh::input
             case SpecialKey::ESC: // Escape Sequence
               char seq[3];
               std::cin.read(seq, 1);
-            // esc ?
+              // esc ?
               if (seq[0] != '[' && seq[0] != 'O')
               {
                 continue;
@@ -784,7 +792,8 @@ namespace czh::input
                       case 'D':
                         return Input::LEFT;
                         break;
-                      default: break;
+                      default:
+                        break;
                     }
                   }
                 }
@@ -805,7 +814,8 @@ namespace czh::input
                     case 'D':
                       return Input::LEFT;
                       break;
-                    default: break;
+                    default:
+                      break;
                   }
                 }
               }
@@ -832,7 +842,8 @@ namespace czh::input
             case 77:
               return Input::RIGHT;
               break;
-            default: break;
+            default:
+              break;
           }
         }
         else
