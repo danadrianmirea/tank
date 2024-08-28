@@ -243,7 +243,7 @@ int main()
       case input::Input::KEY_SLASH:
         input::state.typing_command = true;
         input::state.line.clear();
-        input::state.visible_line = {0, 0};
+        input::state.visible_range = {0, 0};
         input::state.pos = 0;
         input::state.hint.clear();
         input::state.hint_pos = 0;

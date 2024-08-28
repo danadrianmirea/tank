@@ -64,7 +64,7 @@ namespace czh::input
     LINE_FEED = 10,
     CTRL_K = 11,
     CTRL_L = 12,
-    ENTER = 13,
+    CARRIAGE_RETURN = 13,
     CTRL_N = 14,
 
     CTRL_P = 16,
@@ -78,11 +78,6 @@ namespace czh::input
     ESC = 27,
 
     BACKSPACE = 127
-  };
-
-  enum class LongPressMode
-  {
-    On, Off
   };
 
   struct Hint
@@ -99,14 +94,15 @@ namespace czh::input
     bool typing_command;
     std::string line;
     size_t pos;
-    std::pair<size_t, size_t> visible_line;
+    std::pair<size_t, size_t> visible_range;
     std::vector<std::string> history;
     size_t history_pos;
     Hints hint;
     size_t hint_pos;
     std::chrono::high_resolution_clock::time_point last_press;
     Input last_input_value;
-    LongPressMode long_press_mode;
+    bool is_long_pressing;
+    int is_typing_string; // 0 for not, 1 for ', 2 for "
   };
 
   extern InputState state;
